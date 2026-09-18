@@ -41,10 +41,10 @@ complexity analysis rather than on tooling.
 
 ## Academic context
 
-Programming project for **Internet and Networked Economy (INE)**, MSc in
-Advanced Telecommunications (MATT), Universitat Politecnica de Catalunya —
-ETSETB. Worth 30% of the course grade. Delivered as a narrative Jupyter
-notebook and presented on 10 December 2026.
+Programming project for **Internet and Networked Economy (INE)**, Master's
+degree in Advanced Telecommunication Technologies (MATT), taught at the ETSETB,
+Universitat Politecnica de Catalunya. Worth 30% of the course grade. Delivered
+as a narrative Jupyter notebook and presented on 10 December 2026.
 
 Author: Irene Sarrias Perez.
 
@@ -92,7 +92,7 @@ narrate and plot; they delegate computation.
 Requires **Python 3.11**, the interpreter these results were produced with.
 
 ```bash
-git clone https://github.com/isarrias/pagerank-internet-as.git
+git clone https://github.com/irenesape/pagerank-internet-as.git
 cd pagerank-internet-as
 
 python3.11 -m venv .venv
