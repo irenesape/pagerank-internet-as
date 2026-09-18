@@ -17,11 +17,23 @@ and publishes them as monthly snapshots. Two variants exist:
 | `serial-1` | 1998 – present, one file per month | Relationships inferred from RouteViews and RIPE RIS BGP table snapshots taken over a five-day window |
 | `serial-2` | Oct 2015 – present, one file per month | The serial-1 graph plus additional peering links inferred from BGP communities at IXP looking glasses and from traceroute data |
 
-**This project uses `serial-1`.** Reason: it is the variant the published
-inference method and the AS Rank rankings are built on, so comparing our
-PageRank ranking against [AS Rank](https://asrank.caida.org/) is an
-apples-to-apples comparison. `serial-2` adds peering links from a different
-measurement pipeline, which would confound research question 1.
+**This project uses `serial-1`.** The defensible reasons: it is the longer
+series (1998 onwards, against October 2015 for `serial-2`), and it is derived
+from a single measurement pipeline — BGP table snapshots — whereas `serial-2`
+merges in peering links inferred from BGP communities and traceroute. Keeping to
+one pipeline means an unexpected result can be attributed to the AS graph rather
+than to the mixture of methods that produced it.
+
+> **To verify before submission.** The CAIDA dataset page states that the
+> `serial-1` inference method is similar to the one described in *AS
+> Relationships, Customer Cones, and Validation* — the AS Rank paper. It does
+> **not** state which variant the [AS Rank web application](https://asrank.caida.org/)
+> is actually computed from. Research question 1 compares our ranking against AS
+> Rank, so this matters: if AS Rank is built on `serial-2`, the comparison is
+> between graphs with different edge sets and the write-up must say so instead of
+> calling it apples-to-apples. Check the AS Rank documentation and its API
+> metadata, and if it remains unclear, ask `topology-info@caida.org` rather than
+> assuming.
 
 Record the exact snapshot date used in `LAB_NOTEBOOK.md`. The graph changes
 month to month, so a result is only reproducible if the snapshot is pinned.
@@ -69,10 +81,30 @@ and figures in `results/` — are fine to publish with the citation attached.
 
 ## Required citation
 
-The form of citation required by the agreement:
+Two different wordings are in circulation, and they are not equivalent. Both are
+recorded here rather than picking one silently.
+
+**Form A — as given on the dataset page:**
 
 > The CAIDA AS Relationships Dataset, \<date range used\>,
 > https://www.caida.org/catalog/datasets/as-relationships/
+
+**Form B — as given in the Public AUA, the governing legal text:**
+
+> The CAIDA UCSD \<Dataset Name\> - \<dates used\>,
+> https://catalog.caida.org/dataset/\<dataset-URL\>
+
+They differ in the dataset name (`CAIDA UCSD ...` versus `CAIDA ...`) and in the
+domain (`catalog.caida.org/dataset/...` versus
+`caida.org/catalog/datasets/...`).
+
+> **To verify before submission.** Determine which wording applies. The Public
+> AUA is the agreement actually accepted at download time, so its template
+> (Form B) is the safer default, and the specific text shown during the download
+> process takes precedence over both of the above. Resolve the exact dataset name
+> and catalogue URL then, and record the decision in `LAB_NOTEBOOK.md`. If it
+> stays ambiguous, citing both forms is acceptable and costs nothing;
+> under-citing is the only failure mode with consequences.
 
 Fill in the actual snapshot date before submitting. For the methodology behind
 the inference, cite the accompanying paper as well:
