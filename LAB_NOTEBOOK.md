@@ -245,7 +245,7 @@ The `serial-1` README is stored next to the data on purpose. It documents the
 file format, and a format description that lives only in a browser tab is a
 format description that is gone by November.
 
-**Filenames are not what the documentation says.** Safari stripped the `.txt`
+**Filenames are not what the documentation says.** the downloaded files lack the .txt
 component while downloading, so the files are `20260901.as-rel.bz2` rather than
 `20260901.as-rel.txt.bz2`. Nothing is wrong with the contents, but the parser
 must not key off the exact filename — take a path as an argument and let the
@@ -264,13 +264,24 @@ Two kinds of relationship line, pipe-separated:
 <peer-as>|<peer-as>|0              peer-to-peer
 ```
 
-**The first field is the provider.** That is the opposite of the direction this
-project needs: the edge that carries a PageRank vote should run from the
-customer to the provider, since the customer is the one conferring importance by
-paying for transit. So the parser has to reverse `-1` lines explicitly. Getting
-this backwards produces a ranking that looks entirely plausible — a hierarchy,
-with a small set of ASes on top — while being upside down, which is why it needs
-a test rather than a careful read.
+**The first field is the provider.** That is the whole of what the file states:
+which AS is the provider and which is the customer. It says nothing about which
+way a PageRank vote should run, and that direction is a modelling choice of mine,
+exactly as it is for peering links.
+
+The choice taken here is customer to provider, on the reading that a customer
+paying for transit is endorsing the provider it depends on. The opposite
+direction is defensible: it is the provider that supplies the customer with
+global reachability, so an argument can be made that the value flows downwards
+and the vote with it. The dataset settles neither reading, so this decision has
+to be justified in the write-up alongside the peering one, and not presented as
+a property of the data.
+
+Given that choice, the parser has to reverse `-1` lines explicitly, since the
+file lists the provider first. It needs a test on a two-node graph: a ranking
+built on the reversed direction still looks entirely plausible — a hierarchy,
+with a small set of ASes on top — while being upside down, so a careful read
+will not catch the mistake.
 
 Since December 2022 the file also carries `# step N:` comments interleaved
 between blocks of relationships, marking which of the eight inference steps
@@ -278,7 +289,7 @@ produced each block. Two consequences:
 
 - The parser must skip **every** line beginning with `#`, not just a header
   block. A parser that reads a fixed number of header lines and then trusts the
-  rest will crash, or worse, silently mis-parse a comment as a relationship.
+  rest will silently mis-parse a comment as a relationship.
 - The step tags are a per-relationship confidence signal, since earlier steps
   rest on stronger evidence than later ones. Worth keeping rather than
   discarding at parse time: it gives the data-quality section of the write-up
