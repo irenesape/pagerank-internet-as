@@ -54,9 +54,15 @@ implementation is the graded work.
   git keeps every version of every file forever, so a committed dataset is
   effectively permanent. Figures and small CSV tables *are* tracked, because the
   README links them and a reader browsing on GitHub will not run anything.
-- **Dataset variant: CAIDA `serial-1`.** It is the variant AS Rank is built on,
-  which keeps research question 1 an apples-to-apples comparison. `serial-2`
-  mixes in peering links from a different measurement pipeline.
+- **Dataset variant: CAIDA `serial-1`.** Longer series (1998 onwards) and a
+  single measurement pipeline, BGP table snapshots, whereas `serial-2` merges in
+  peering links inferred from BGP communities and traceroute. One pipeline means
+  a surprising result can be attributed to the graph rather than to the mixture
+  of methods behind it. Note that the first draft justified this by claiming AS
+  Rank is built on `serial-1`; the dataset page does not say that, only that the
+  `serial-1` inference method resembles the one in the AS Rank paper. Claim
+  withdrawn and flagged for verification in `data/README.md`, because research
+  question 1 rests on it.
 - **Notebook `00_toy_graph.ipynb` before touching real data.** Validate on a
   4-node graph solvable by hand, then scale to 75k nodes. Debugging a wrong
   ranking on the real graph without a known-good baseline is guesswork.
@@ -133,6 +139,41 @@ Division of labour between the two files, now documented in the README:
 `requirements.txt` installs (ranges, newest compatible release),
 `requirements-lock.txt` reproduces (exact pins plus interpreter and platform).
 
+### Review pass: dependency bounds
+
+The `numpy>=1.26,<2.1` range was a leftover from the interpreter discussion, not
+a real constraint. Nothing in the stack asks for it: scipy 1.17.1 declares
+`numpy>=1.26.4,<2.7`, and pandas, matplotlib and networkx declare floors only.
+Raised to `numpy>=2.0,<3.0`.
+
+The floor moved up as well as the cap. The old range straddled the numpy 1.x/2.x
+boundary, which was a genuine break — removed scalar aliases such as
+`np.float_`, changed `copy=False` semantics in `np.array`, new scalar promotion
+rules under NEP 50. Claiming compatibility with both majors means testing
+against both, which buys nothing for a single-author project. Bounds now sit at
+major-version boundaries, which is the only place these projects allow
+themselves to break API. The tight upper bound arrives transitively from scipy,
+so repeating it here would only go stale.
+
+numpy upgraded 2.0.2 → 2.4.6. Checked for ABI breakage, since scipy ships
+extension modules compiled against numpy: `scipy.sparse` matrix-vector products
+and `scipy.sparse.linalg.norm` behave, tests still report 5 passed and 1
+skipped, and `requirements-lock.txt` was regenerated and its resolution
+re-validated with `pip install --dry-run`.
+
+Done now rather than in November on purpose: there are no published results to
+invalidate yet, so this is the cheapest moment for a dependency bump.
+
+**Gotcha.** `pip install --upgrade -r requirements.txt` did not move numpy at
+all. pip's default upgrade strategy is `only-if-needed`, and numpy 2.0.2 already
+satisfied the widened range, so nothing looked out of date. Upgrading a
+transitive dependency requires naming it (`pip install --upgrade numpy`) or
+passing `--upgrade-strategy eager`, which churns the whole tree. Worth
+remembering before concluding that a widened bound had no effect.
+
+**Verified.** `python -V` inside `.venv` reports exactly `Python 3.11.2`, which
+matches the version recorded above and in the lock file header.
+
 ### Branching
 
 `main` plus short-lived, single-purpose branches (`feat/power-iteration`,
@@ -155,8 +196,9 @@ hand. The cleared-output policy above is what keeps branches usable.
 - Decide and document the dangling-node convention (ASes with no out-links).
   Deliberately left out of the toy graph so the choice is explicit and tested
   separately rather than absorbed silently into the solver.
-- Fix the repository URL in `pyproject.toml` and `README.md` once the GitHub
-  remote exists — currently a placeholder.
+- Verify which AS Relationships variant the AS Rank web application is computed
+  from, and which of the two citation wordings applies. Both are flagged in
+  `data/README.md`; record the answers here once confirmed.
 - **Possible future improvement: `pyenv`.** Deferred deliberately. It manages
   several Python versions side by side and pins one per project via a
   `.python-version` file, which is the right tool once there are projects
@@ -167,7 +209,9 @@ hand. The cleared-output policy above is what keeps branches usable.
   repository has to change.
 - Regenerate `requirements-lock.txt` (with `--exclude-editable`) after any
   intentional dependency upgrade, and before the final submission.
-- Deadline reminder: the repository must be presentable by **30 November 2026**,
-  ten days before the course presentation on 10 December. The README and
-  results sections need to be finished against the November date, not the
-  December one.
+- Deadline reminder: the repository must be presentable by **25 November 2026**.
+  That is the working target, deliberately well ahead of the course
+  presentation on **10 December**: a repository that is only ready on the day
+  leaves no room for a broken figure, a last-minute rerun, or the write-up
+  reading worse than expected. The README and results sections are finished
+  against 25 November.
