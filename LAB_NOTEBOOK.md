@@ -92,21 +92,81 @@ Procedure for the final version: freeze the code, restart and run all, check
 every figure rendered, commit as a single dedicated commit, and tag it. Do not
 mix that commit with code changes.
 
+### Interpreter: Python 3.11, not 3.12 (resolved)
+
+The plan said 3.12. The machine does not have it: `python3.12` is absent from
+`PATH`, Homebrew provides 3.11 and 3.14, and the system interpreter is 3.9.
+Settled on **CPython 3.11.2** (Homebrew), with the virtual environment in
+`.venv/`.
+
+- **Why not 3.12.** It would have to be installed, and it buys nothing here.
+  Every dependency in this stack — numpy, scipy, pandas, matplotlib, jupyter,
+  networkx, pytest — publishes arm64 wheels for 3.11 just as it does for 3.12,
+  and the project uses no 3.12-only language feature. The governing principle
+  is that the documented version must be the version actually used; documenting
+  3.12 while running something else is exactly the kind of quiet mismatch that
+  makes a repository unreproducible.
+- **Why not 3.14.** numpy in the pinned range publishes no wheels for 3.14, so
+  pip would fall back to building numpy from source. That needs a C and Fortran
+  toolchain, takes a long time, and fails in ways unrelated to this project.
+- Updated `README.md`, `requirements.txt` and `pyproject.toml` to say 3.11.
+
+Installed and verified: numpy 2.0.2, scipy 1.17.1, pandas 2.3.3,
+matplotlib 3.11.2, networkx 3.6.1, pytest 8.4.2. `import pagerank` resolves to
+`src/pagerank/__init__.py` from inside `notebooks/`, confirming the editable
+install works without path hacks.
+
+First test run: **5 passed, 1 skipped**. The networkx cross-check agreed with
+the hand-derived rationals to 1e-9, so the ground truth is now confirmed by two
+independent routes.
+
+### Gotcha: pip freeze and editable installs
+
+`pip freeze` writes the editable install as an absolute path
+(`-e /Users/<user>/Development/pagerank-internet-as`), which resolves
+only on this laptop. A lock file containing that line is worthless to anyone
+else. Fixed by generating the lock with `pip freeze --exclude-editable` and
+adding a relative `-e .` by hand. Recorded in the header of
+`requirements-lock.txt` so the next regeneration does not reintroduce the bug.
+
+Division of labour between the two files, now documented in the README:
+`requirements.txt` installs (ranges, newest compatible release),
+`requirements-lock.txt` reproduces (exact pins plus interpreter and platform).
+
+### Branching
+
+`main` plus short-lived, single-purpose branches (`feat/power-iteration`,
+`feat/local-push`, `exp/gauss-seidel-ordering`), merged once `pytest` is green,
+with annotated tags at milestones. Self-directed pull requests only for the two
+large branches, where a written summary is worth the effort; small changes go
+straight to a branch and merge.
+
+The reason is not conflict avoidance — there is only one author — but that
+`main` must stay presentable at all times, since the repository is public and
+`main` is what a reader sees first. gitflow with `develop` and
+`release/*` is rejected: it exists to coordinate teams and versioned releases.
+
+Note that notebooks are the worst case for branching: two branches touching the
+same `.ipynb` conflict inside JSON with base64 payloads and cannot be merged by
+hand. The cleared-output policy above is what keeps branches usable.
+
 ### Open items
 
-- **Blocked: Python 3.12 is not installed on this machine.** `python3.12` is not
-  on `PATH`; Homebrew has 3.11 and 3.14, and the system ships 3.9. Cannot use
-  3.14: the pinned `numpy>=1.26,<2.1` has no wheels for it and would try to
-  compile from source. Options are `brew install python@3.12` (matches the
-  stated target) or falling back to 3.11, which works with the current ranges.
-  Environment creation is on hold until this is settled.
-- Generate `requirements-lock.txt` with `pip freeze` right after the first
-  successful install.
 - Decide and document the dangling-node convention (ASes with no out-links).
   Deliberately left out of the toy graph so the choice is explicit and tested
   separately rather than absorbed silently into the solver.
 - Fix the repository URL in `pyproject.toml` and `README.md` once the GitHub
   remote exists — currently a placeholder.
+- **Possible future improvement: `pyenv`.** Deferred deliberately. It manages
+  several Python versions side by side and pins one per project via a
+  `.python-version` file, which is the right tool once there are projects
+  demanding different interpreters. Today there is one project and one
+  interpreter, so it would be a dependency to learn with no problem to solve.
+  Revisit when a second project needs a different version — at that point the
+  fix is `pyenv install` plus a `.python-version` file, and nothing in this
+  repository has to change.
+- Regenerate `requirements-lock.txt` (with `--exclude-editable`) after any
+  intentional dependency upgrade, and before the final submission.
 - Deadline reminder: the repository must be presentable by **30 November 2026**,
   ten days before the course presentation on 10 December. The README and
   results sections need to be finished against the November date, not the
