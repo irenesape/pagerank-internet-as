@@ -42,9 +42,9 @@ complexity analysis rather than on tooling.
 ## Academic context
 
 Programming project for **Internet and Networked Economy (INE)**, MSc in
-Advanced Mathematics and Mathematical Engineering (MATT), Universitat
-Politecnica de Catalunya — ETSETB. Worth 30% of the course grade. Delivered as
-a narrative Jupyter notebook and presented on 10 December 2026.
+Advanced Telecommunications (MATT), Universitat Politecnica de Catalunya —
+ETSETB. Worth 30% of the course grade. Delivered as a narrative Jupyter
+notebook and presented on 10 December 2026.
 
 Author: Irene Sarrias Perez.
 
@@ -79,7 +79,8 @@ and the required citation.
 │   └── tables/         small result tables (CSV)
 ├── LAB_NOTEBOOK.md     dated log of decisions, failures and fixes
 ├── pyproject.toml      package metadata, dependency ranges, pytest config
-└── requirements.txt    environment definition
+├── requirements.txt    environment definition (ranges, for installing)
+└── requirements-lock.txt   exact pins (for reproducing the results)
 ```
 
 The split matters: code that lives in `src/` is testable and reusable across
@@ -88,14 +89,15 @@ narrate and plot; they delegate computation.
 
 ## Reproducing
 
-Requires Python 3.12.
+Requires **Python 3.11**, the interpreter these results were produced with.
 
 ```bash
 git clone https://github.com/isarrias/pagerank-internet-as.git
 cd pagerank-internet-as
 
-python3.12 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
@@ -107,6 +109,20 @@ Verify the environment:
 ```bash
 pytest
 ```
+
+One test is reported as skipped until the solver it targets is written; the
+remaining tests validate the ground truth the solver will be checked against.
+
+### Which requirements file to use
+
+| File | What it pins | Use it to |
+| --- | --- | --- |
+| `requirements.txt` | Nothing directly: it installs `-e .[dev]` and defers to the version *ranges* in `pyproject.toml` | **Install and work on the project.** pip resolves the newest compatible release of each dependency. |
+| `requirements-lock.txt` | Every package, transitive dependencies included, at one exact version, with the interpreter and platform recorded in its header | **Reproduce the published results**, or bisect a discrepancy between your run and the reported numbers. |
+
+Ranges express what the code is *compatible with*; the lock file records what
+was *actually installed*. Only the second reproduces a result, which is why
+both are tracked.
 
 Then obtain the dataset as described in [`data/README.md`](data/README.md),
 place it under `data/raw/`, and run the notebooks in numerical order.

@@ -1,20 +1,30 @@
 # Environment definition for this project.
 #
+# THIS FILE = how to install the project (version ranges).
+# requirements-lock.txt = how to reproduce the published results (exact pins).
+#
 # Installs the local package `pagerank` (src/pagerank) in editable mode
 # together with its runtime dependencies and the dev extras
 # (pytest, jupyter, networkx). Version ranges live in pyproject.toml,
 # which is the single source of truth -- do not duplicate them here.
 #
-#   python3.12 -m venv .venv
+#   python3.11 -m venv .venv
 #   source .venv/bin/activate
+#   python -m pip install --upgrade pip
 #   pip install -r requirements.txt
 #
 # Editable mode means notebooks in notebooks/ can do `from pagerank import ...`
 # with no sys.path manipulation, and edits to src/ are picked up immediately.
 -e .[dev]
 
-# For an exact, byte-for-byte reproducible environment, use the lock file
-# instead (regenerate it with `pip freeze > requirements-lock.txt` whenever
-# you intentionally upgrade something):
+# For the exact environment the results were produced with, use the lock file
+# instead:
 #
 #   pip install -r requirements-lock.txt
+#
+# Regenerate the lock only when you intentionally upgrade something:
+#
+#   pip freeze --exclude-editable > requirements-lock.txt
+#
+# (--exclude-editable matters: plain `pip freeze` writes an absolute path for
+# the editable install, which only resolves on the machine that ran it.)
