@@ -215,3 +215,152 @@ hand. The cleared-output policy above is what keeps branches usable.
   leaves no room for a broken figure, a last-minute rerun, or the write-up
   reading worse than expected. The README and results sections are finished
   against 25 November.
+---
+
+## 2026-09-18 — First inspection of the CAIDA dataset
+
+Downloaded the snapshot and read the format documentation before writing any
+parser. The point of this pass was to find out what the file actually contains,
+because most of the design decisions for the graph construction turn out to be
+forced by the data rather than chosen freely.
+
+### Data downloaded
+
+Snapshot **20260901**, `serial-1`, the most recent available. Files now in
+`data/raw/` (git-ignored, as always):
+
+| File | Size | What it is |
+| --- | --- | --- |
+| `20260901.as-rel.bz2` | 1,705,904 bytes | the relationship graph |
+| `20260901.ppdc-ases.bz2` | 1,709,605 bytes | customer cones per AS |
+| `caida_serial-1_README.txt` | — | the README from the `serial-1` directory |
+
+The customer cone file changes the plan for research question 1: it is the
+reference ranking, used instead of the AS Rank API. That removes a network
+dependency and a moving target from the comparison, since the cones ship
+alongside the exact snapshot the PageRank vector is computed from rather than
+being fetched from a service that updates on its own schedule.
+
+The `serial-1` README is stored next to the data on purpose. It documents the
+file format, and a format description that lives only in a browser tab is a
+format description that is gone by November.
+
+**Filenames are not what the documentation says.** Safari stripped the `.txt`
+component while downloading, so the files are `20260901.as-rel.bz2` rather than
+`20260901.as-rel.txt.bz2`. Nothing is wrong with the contents, but the parser
+must not key off the exact filename — take a path as an argument and let the
+caller name it. Anything that pattern-matches `*.as-rel.txt.bz2` will silently
+find no input.
+
+Deliberately not downloaded: `all-paths` (2.4 GB of raw BGP paths) and
+`as-rel.v6-stable` (IPv6 only). Both are out of scope.
+
+### File format, per the CAIDA README
+
+Two kinds of relationship line, pipe-separated:
+
+```
+<provider-as>|<customer-as>|-1     customer-provider
+<peer-as>|<peer-as>|0              peer-to-peer
+```
+
+**The first field is the provider.** That is the opposite of the direction this
+project needs: the edge that carries a PageRank vote should run from the
+customer to the provider, since the customer is the one conferring importance by
+paying for transit. So the parser has to reverse `-1` lines explicitly. Getting
+this backwards produces a ranking that looks entirely plausible — a hierarchy,
+with a small set of ASes on top — while being upside down, which is why it needs
+a test rather than a careful read.
+
+Since December 2022 the file also carries `# step N:` comments interleaved
+between blocks of relationships, marking which of the eight inference steps
+produced each block. Two consequences:
+
+- The parser must skip **every** line beginning with `#`, not just a header
+  block. A parser that reads a fixed number of header lines and then trusts the
+  rest will crash, or worse, silently mis-parse a comment as a relationship.
+- The step tags are a per-relationship confidence signal, since earlier steps
+  rest on stronger evidence than later ones. Worth keeping rather than
+  discarding at parse time: it gives the data-quality section of the write-up
+  something concrete to say instead of generic caveats.
+
+### What is in the file
+
+| Quantity | Count | Share |
+| --- | --- | --- |
+| Comment lines | 175 | — |
+| Relationship lines | 525,848 | 100% |
+| Customer-provider (`-1`) | 166,906 | 31.7% |
+| Peer-to-peer (`0`) | 358,942 | 68.3% |
+
+The two relationship counts add up to the total exactly, which establishes
+something useful: the third field takes no values other than `-1` and `0`. The
+parser does not need a branch for sibling links or anything else in this
+snapshot, and a test asserting that the counts reconcile will catch a future
+snapshot that introduces one.
+
+Peering dominates at better than two to one. That is consistent with the
+documented flattening of the Internet topology and the weight of internet
+exchange points, so it reads as a property of the graph rather than a parsing
+mistake.
+
+It also has an uncomfortable design consequence. For 68.3% of the links the data
+does not supply a direction: a `p2p` line records that two ASes exchange traffic
+as equals, not that either confers importance on the other. So on the majority
+of edges the direction is my modelling choice, not a fact from the dataset. That
+has to be stated as such in the write-up, and the ranking should be recomputed
+under the alternative choice to show how much of the result the choice is
+responsible for.
+
+### Header: input clique and IXPs
+
+The header declares an **input clique of 18 ASNs** that CAIDA forces as the
+transit-free clique at the top of the hierarchy:
+
+```
+174 209 286 701 1299 2828 2914 3257 3320 3356 3491
+5511 6453 6461 6762 6830 7018 12956
+```
+
+This is the sanity check for the ranking. These are the ASes the inference
+method itself treats as the top of the topology, so if PageRank does not put
+them near the top, the bug is in my code and not an interesting finding. Useful
+precisely because it is available before any result exists.
+
+It also declares **28 ASNs belonging to internet exchange points**. IXP ASes
+accumulate very large numbers of peering links by construction, which is a
+structural artefact of how exchanges work rather than evidence of commercial
+centrality, so they are a plausible source of distortion in the ranking.
+
+The `source:` lines confirm the five-day observation window, 20260901 to
+20260905, and name the RouteViews collectors used. That is the provenance detail
+that makes the snapshot citable, so it goes in the write-up alongside the
+citation.
+
+### Pending measurements
+
+Not measured yet, and deliberately left blank rather than estimated:
+
+- Number of distinct ASes in the file.
+- Maximum ASN, which decides whether an explicit ASN-to-index dictionary is
+  needed or whether ASNs can be used directly as matrix indices. The tradeoff is
+  memory against a layer of indirection: dense indexing over a sparse ASN space
+  wastes rows, while a dictionary costs a lookup on every edge insertion.
+
+### Open items
+
+- **Direction of peering links.** Count them in both directions, or exclude them
+  from the graph entirely? This governs 68.3% of the edges, so it is the single
+  most consequential modelling decision in the project. Whichever way it goes,
+  report the ranking under both.
+- **Inversion of customer-provider links.** Confirm against the `serial-1`
+  README and document that the vote runs from customer to provider, given that
+  the file lists the provider first. Cover it with a test on a two-node graph
+  where the two directions give visibly different answers.
+- **The 28 IXP ASes.** Keep them or exclude them, and justify the choice. They
+  are structurally unlike ordinary ASes, so leaving them in without comment is
+  itself an unstated decision.
+- **Dangling nodes** (ASes with no out-links), already open from the setup entry.
+  Whether any exist in this snapshot depends on how the two decisions above
+  resolve — excluding peering links would leave every AS with no providers
+  dangling — so it cannot be settled independently of them.
