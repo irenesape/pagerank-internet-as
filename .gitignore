@@ -1,0 +1,70 @@
+# ----------------------------------------------------------------------
+# Python
+# ----------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# ----------------------------------------------------------------------
+# Virtual environment (never commit it: it is machine- and OS-specific)
+# ----------------------------------------------------------------------
+.venv/
+venv/
+env/
+
+# ----------------------------------------------------------------------
+# Jupyter
+# ----------------------------------------------------------------------
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# ----------------------------------------------------------------------
+# Test / tooling caches
+# ----------------------------------------------------------------------
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ----------------------------------------------------------------------
+# macOS
+# ----------------------------------------------------------------------
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
+# ----------------------------------------------------------------------
+# Editors
+# ----------------------------------------------------------------------
+.idea/
+*.swp
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# ----------------------------------------------------------------------
+# DATA -- CAIDA files are NEVER committed.
+# Two independent reasons: (1) the CAIDA Acceptable Use Agreement governs
+# redistribution, (2) the snapshots are large and would bloat history
+# forever (git keeps every version you ever add).
+# Only the placeholder files survive, so `git clone` recreates the layout.
+# ----------------------------------------------------------------------
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# ----------------------------------------------------------------------
+# RESULTS -- figures and small tables ARE tracked, the README links them.
+# Only heavy binary intermediates are ignored.
+# ----------------------------------------------------------------------
+results/**/*.npy
+results/**/*.npz
+results/**/*.pkl
+results/**/*.h5

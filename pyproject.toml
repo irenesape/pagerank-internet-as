@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pagerank-internet-as"
+version = "0.1.0"
+description = "PageRank on the AS-level Internet topology (CAIDA AS Relationships)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Irene Sarrias Perez" }]
+keywords = ["pagerank", "power-iteration", "sparse-matrices", "internet-topology", "bgp"]
+
+# Reference interpreter for the project is CPython 3.12 (see README).
+# The floor is 3.11 so the environment can still be built on machines
+# where 3.12 is not available; the exact version used is recorded in
+# requirements-lock.txt.
+requires-python = ">=3.11"
+
+# Runtime dependencies of the *library* in src/pagerank.
+# Deliberately declared as ranges, not exact pins: a library states what it
+# is compatible with, an environment states what was actually installed.
+dependencies = [
+    "numpy>=1.26,<2.1",
+    "scipy>=1.11,<2.0",
+    "pandas>=2.1,<3.0",
+    "matplotlib>=3.8,<4.0",
+]
+
+[project.optional-dependencies]
+# Not needed to import the library, only to develop/run the analysis.
+# networkx lives here on purpose: it is used ONLY to cross-check results on
+# small graphs, never to compute the results reported in the notebooks.
+dev = [
+    "pytest>=8.0,<9.0",
+    "jupyter>=1.0,<2.0",
+    "networkx>=3.2,<4.0",
+]
+
+[project.urls]
+Repository = "https://github.com/isarrias/pagerank-internet-as"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
