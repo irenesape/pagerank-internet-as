@@ -375,3 +375,229 @@ Not measured yet, and deliberately left blank rather than estimated:
   Whether any exist in this snapshot depends on how the two decisions above
   resolve — excluding peering links would leave every AS with no providers
   dangling — so it cannot be settled independently of them.
+---
+
+## 2026-10-15 — Project 3.4: the assignment becomes concrete
+
+The course changed the rules. When this repository was set up, the programming
+project was free-topic and proposed by email. On 1 October the lecturer
+published new guidelines with a **closed list of fifteen projects**, one of
+which has to be chosen. Reserved:
+
+> **Project 3.4 — PageRank on a Non-Web Graph (e.g., Social Network)**
+
+The topic survives intact, which is the good news and the reason none of the
+scaffolding is wasted. The AS-level Internet topology is a non-web graph by any
+reading. But the brief attaches four specific requirements, and the repository
+as written did not reflect them, which is a worse problem than it sounds: a
+document that describes a different project than the one being graded is a
+document that misleads the person writing the code.
+
+### What the brief requires
+
+1. Obtain a dataset of a network that is not the web, and model it as a
+   directed graph.
+2. Apply an **own implementation** of PageRank **with dangling-node
+   treatment**. Project 3.2 (*Handling Dangling Nodes*) is folded into 3.4 as
+   standard, so this is not a refinement one may skip.
+3. Interpret the top-ranked nodes: what does a high PageRank mean here?
+4. Compare the ranking against **in-degree** and discuss the differences.
+
+And a line in the rubric that is worth more than it looks: **complexity is not
+rewarded for its own sake.** A simple, correct, well-evaluated implementation
+scores higher than an elaborate one that is badly explained. That sentence
+reorders the whole project. The instinct behind the original three research
+questions was to show range — Gauss-Seidel, local push, a convergence study —
+and under this rubric range bought on the quality of the explanation is a net
+loss.
+
+### Promoted from open item to requirement
+
+**Dangling nodes.** Previously an open item, deferred on the reasoning that it
+could not be settled until the peering-direction and IXP decisions were made.
+That reasoning is still technically right and now irrelevant: the dependency
+does not excuse the delay, because the requirement has a name in the brief and
+has to be answered whichever way the other two go. It is being promoted to a
+core research question in its own right, and the write-up will have to show the
+ranking under more than one convention rather than quietly pick the convenient
+one.
+
+There is an awkward consequence for the test suite. The toy graph was built
+*deliberately* without dangling nodes, so that the convention would be chosen
+explicitly and tested separately instead of being absorbed into the solver. That
+was the right call, and it means the current ground truth does not cover what is
+now a graded requirement. A second fixture is needed — a small graph with at
+least one node having no out-links — added in the same working session as this
+entry.
+
+**In-degree.** Did not appear anywhere in the repository and is now the
+mandatory baseline. This is the most useful thing the new brief contributes,
+and that deserves saying plainly rather than being treated as an imposition:
+in-degree is the correct comparison to be forced into. PageRank's whole claim
+is that *who* points at you matters, not only *how many*. If the two orderings
+agree on the AS graph, the eigenvector bought nothing and that is a real finding;
+if they disagree, every disagreement is a concrete case to explain, and
+explaining cases is exactly what question 3 asks for. Cheap to compute, too —
+it is a row-sum of the matrix the solver already needs, so the baseline costs
+essentially nothing beyond the discussion it enables.
+
+It is now the central core question, and notebook `02` has been renamed from
+`02_ranking_vs_asrank.ipynb` to `02_ranking_and_indegree.ipynb` to say so.
+Naming a notebook after the optional comparison while the required one is
+absent was the clearest symptom of the drift.
+
+### Demoted from requirement to extension
+
+**The customer cone comparison.** It was research question 1. It is now
+extension 5, in a new notebook `05_customer_cone_comparison.ipynb`.
+
+Nothing about it got worse — it is still the most interesting comparison in the
+project, because the cone is an independent expert ranking built by people who
+know the topology, whereas in-degree is a one-line baseline. But it is not what
+the brief asks for, and it carries the one unresolved external dependency in
+the project: whether AS Rank is computed from `serial-1` or `serial-2` (still
+open, flagged in `data/README.md` since 18 September). A required result must
+not rest on a question that might be answered by an email that never arrives.
+In-degree has no such exposure: same file, same graph, same code.
+
+So the demotion is really a de-risking. The cone comparison keeps its place as
+the extension most worth doing, and it is the last to be cut, precisely because
+it feeds back into core question 3 — it is evidence for or against my
+interpretation of the top of the ranking.
+
+### The extensions, and the order they get cut in
+
+Convergence and local push are now extensions 6 and 7. Marked cuttable in the
+README, with the order written down: **7 first, then 6, then 5.**
+
+Writing the order down now, while there is no schedule pressure, is the point of
+the exercise. Decided under pressure in late November, the thing that gets cut
+is whatever happens to be unfinished, which is not the same as the thing that
+matters least.
+
+- **Local push (7) goes first.** Largest implementation effort, most delicate to
+  get right, and the furthest from anything the brief mentions. It also answers
+  a question about approximation algorithms rather than about the Internet,
+  which makes it the hardest to fit into the narrative the submission is graded
+  on.
+- **Convergence (6) goes second.** Much cheaper, since iteration counts and
+  residual histories fall out of the solver the core already requires, so it may
+  well survive on economics alone. Still a question about the method, not the
+  graph.
+- **Customer cone (5) goes last**, for the reason given above.
+
+Note that none of this removes the `exp/gauss-seidel-ordering` branch idea from
+the September entry, but it does reclassify it: that is an extension of an
+extension, and it only gets written if everything else is already finished and
+written up.
+
+### What changed in the repository
+
+Documentation only. No algorithm code was written in this session, deliberately
+— the implementation is the graded work and stays mine.
+
+- `README.md`: Project 3.4 and its four requirements recorded under *Academic
+  context*; research questions split into **Core** (the four requirements, with
+  PageRank vs in-degree as the central one) and **Extensions** (cone,
+  convergence, push) with the cut order stated; a new subsection justifying
+  CAIDA against the SNAP datasets the brief suggests; layout tree updated.
+- `notebooks/`: `02` renamed with `git mv` so the history follows the file,
+  `05_customer_cone_comparison.ipynb` created. Both still empty.
+- `data/README.md`: notes that in-degree is the required baseline and is derived
+  from `as-rel` itself, so the open AS Rank provenance question now affects only
+  the optional extension.
+- `tests/test_toy_graph.py`: second fixture with a dangling node (see below).
+
+### Why CAIDA and not SNAP, written down at last
+
+The brief suggests SNAP as the dataset source, and a social network as the
+example graph. This justification existed in the Plan of Attack but had never
+made it into the repository, which is exactly the kind of reasoning that is
+impossible to reconstruct in December. Four grounds, now in the README:
+
+- **Size.** ~75k nodes, ~526k relationships: big enough that sparse storage and
+  iteration counts matter, small enough to solve precisely and inspect by hand.
+- **Natural direction.** The graph is directed by its economics rather than by a
+  convention imposed afterwards. A customer-provider link is asymmetric because
+  dependency and money run one way. Many SNAP social graphs are undirected and
+  have to be directed artificially, which makes the modelling step a formality
+  instead of a finding.
+- **Real dangling nodes.** Now a requirement, and they occur naturally here
+  rather than having to be manufactured.
+- **An independent expert ranking exists.** The customer cones ship with the
+  same snapshot. Most SNAP graphs come with no reference ordering at all, which
+  would leave core question 3 with nothing external to check against.
+
+Added the caveat that matters for the grade: the code is dataset-agnostic once
+the edge list is loaded. Everything in `src/pagerank/` will work on a node-index
+map plus an edge list, so a SNAP graph is a different loader and nothing else.
+CAIDA supplies the data; it does not shape the implementation.
+
+### A fixture for dangling nodes
+
+`tests/test_toy_graph.py` gains `DANGLING_EDGES` — `0->1, 0->2, 1->2, 1->3,
+2->3` — a 4-node graph where node 3 has no out-links but two in-links. The
+in-links are the point: an isolated node would also be dangling, but it would
+never accumulate the mass that makes the leak observable, so it would not
+exercise the treatment at all.
+
+Node 0 is unreachable, which gives a second useful handle. It receives nothing
+through any edge, so whatever rank it ends up with is exactly the floor its
+convention imposes — teleport mass plus whatever share of the leaked mass the
+convention hands it. That makes node 0 a direct read-out of which convention is
+in force, and it should come last in the ranking under either of them.
+
+The exact PageRank constants are **left as `TODO`** on purpose. Deriving them by
+hand is part of the graded work and the whole value of the first fixture is that
+its expected values were proved, twice, before any solver existed. A fixture
+whose constants were produced by something other than that derivation would look
+identical and be worth nothing. The tests that would consume the constants are
+skipped until they are filled in, and the ones that can already run — structural
+assertions about which nodes dangle — do run.
+
+Worth stating the subtlety the fixture exists to expose: with a dangling node
+present the raw transition matrix is only **substochastic** — node 3's row is
+all zeros, so mass leaks and the iteration converges to something that does not
+sum to 1. Each convention repairs that differently, so there is **no
+convention-independent ground truth** here. Whatever gets derived has to name
+its convention, and the obvious trap is deriving the vector under one convention
+and testing an implementation that uses another.
+
+One correction to what I assumed while writing this. The three conventions do
+not give three different answers: with the **uniform** teleport vector this
+project uses, redistributing the leaked mass uniformly and redistributing it
+along the teleport vector are *the same operation*. They only diverge under
+personalised PageRank, which is extension 7. So the fixture distinguishes two
+answers — redistribute versus renormalise — and the write-up should say that
+rather than implying three independent choices. Noting it here because it is the
+kind of thing that reads as sloppiness in a presentation if the count is wrong.
+
+### Open items
+
+Carried forward, with status under the new brief:
+
+- **Dangling-node convention.** No longer deferrable: it is core question 2.
+  Two distinct answers under uniform teleportation (see above) — repair the
+  matrix by replacing dangling rows with the teleport distribution, or leave it
+  substochastic and renormalise. Derive the fixture constants for both, since
+  the test that proves them also has to show they differ, and report the AS
+  ranking under both.
+- **Direction of peering links** (68.3% of edges) and **inversion of
+  customer-provider links**: unchanged, and now explicitly part of core
+  question 1, which asks which choices are facts from the data and which are
+  mine.
+- **The 28 IXP ASes.** Unchanged, and relevant to core question 4: an IXP AS
+  accumulates peering links by construction, so it is a prime candidate for a
+  large PageRank/in-degree disagreement. Useful rather than merely awkward.
+- **Which AS Relationships variant AS Rank uses**, and the citation wording.
+  Downgraded: affects extension 5 only. Partly resolved already — the shipped
+  `caida_serial-1_README.txt` gives Form A's wording *and* points at
+  `catalog.caida.org/dataset/as_relationships_serial_1` for citation
+  information, which is the Form B domain. Citing both costs nothing and the
+  file in `data/raw/` is the authority, so this is close to closed.
+- **Distinct AS count and maximum ASN**, still unmeasured, still blocking the
+  dense-versus-dictionary indexing decision. First thing to do with real data.
+- Schedule unchanged: presentable by **25 November 2026**, presentation
+  **10 December**. The new brief does not move either date, but it does mean the core is now a smaller,
+  better-defined target than the three original research questions were — which
+  is the first genuinely reassuring thing about the change.
