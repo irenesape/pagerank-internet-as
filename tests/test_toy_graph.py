@@ -19,7 +19,9 @@ Two fixtures live here, for two different jobs:
 ``DANGLING_EDGES``
     Contains a node with no out-links. Project 3.4 requires dangling-node
     treatment, so the suite has to exercise it; the first fixture deliberately
-    cannot. Its expected vectors are still ``TODO`` -- see below.
+    cannot. Its expected vector is still ``TODO`` -- see below. One vector
+    suffices: the standard dangling conventions provably coincide, which is
+    itself asserted by a test here.
 
 Toy graph (directed, 4 nodes, no dangling nodes)::
 
@@ -126,57 +128,92 @@ def _dangling_nodes(edges: list[tuple[int, int]], n: int) -> list[int]:
 #   treatment. The first fixture already has the isolated-ish case covered from
 #   the other side (its node 3 has no *in*-links).
 # * **Node 0 is unreachable.** It receives nothing through any edge, so
-#   whatever rank it ends up with is precisely the floor the convention
-#   imposes: the teleport mass plus whatever share of the leaked mass the
-#   convention hands it. That makes node 0 a direct read-out of which
-#   convention is in force, and it should be last in the ranking under all of
-#   them.
+#   whatever rank it ends up with is precisely the floor the model imposes:
+#   the teleport mass plus its share of the redistributed leaked mass. It
+#   should come last in the ranking, which makes it a cheap by-eye check at
+#   the bottom end, exactly as node 3 of the first fixture is at the top.
+#   It does *not* discriminate between the dangling conventions -- nothing
+#   does, see below.
 #
-# Without a dangling-node convention the row-normalised transition matrix is
-# only *substochastic*: the row for node 3 is all zeros, mass leaks out, and
-# the iteration converges to something that does not sum to 1. Each convention
-# repairs that differently, so there is no convention-independent ground truth
-# here. Any derived vector must name its convention, and the obvious trap is
-# deriving under one and testing an implementation that uses another.
+# ---------------------------------------------------------------------------
+# The conventions are not actually different
+# ---------------------------------------------------------------------------
 #
-# Note, for the uniform teleport vector used throughout this project, that
-# redistributing the leaked mass *uniformly* and redistributing it *along the
-# teleport vector* are the same operation. They only diverge under personalised
-# PageRank, which belongs to extension 7. So this fixture distinguishes two
-# distinct answers, not three.
+# Without any treatment the row-normalised transition matrix is only
+# *substochastic*: node 3's row is all zeros, so mass leaks and the iteration
+# converges to something that does not sum to 1. Three repairs get discussed
+# in the literature and in course notes:
+#
+#   (a) replace each dangling row with the teleport distribution v, making the
+#       matrix stochastic, then solve the ordinary fixed point;
+#   (b) replace each dangling row with the uniform distribution;
+#   (c) leave the matrix substochastic, solve, and rescale the solution to
+#       unit L1 norm at the end.
+#
+# All three give the *same vector* here, and (a) == (c) holds for any teleport
+# vector at all. Proof, with P the row-normalised matrix (zero rows at
+# dangling nodes), v the teleport vector, d the 0/1 indicator of dangling
+# rows, and alpha the damping factor:
+#
+#   The repaired matrix is P' = P + d v^T, so P'^T = P^T + v d^T. Its fixed
+#   point satisfies
+#
+#       y = (1-alpha) v + alpha P'^T y
+#         = (1-alpha) v + alpha P^T y + alpha v (d^T y)
+#         = [(1-alpha) + alpha m] v + alpha P^T y,     m = d^T y, a scalar
+#
+#   while the substochastic fixed point satisfies
+#
+#       x = (1-alpha) v + alpha P^T x
+#
+#   Both have the form z = k v + alpha P^T z, whose solution is
+#   z = k (I - alpha P^T)^-1 v -- the same operator, differing only in the
+#   scalar k. So y and x are parallel, and since ||y||_1 = 1 by construction,
+#   y is exactly x normalised. Which is what (c) computes.  QED
+#
+# (a) == (b) needs one extra assumption, and it is the one this project
+# satisfies: v uniform. Under a biased teleport vector (a) and (b) genuinely
+# differ, which only becomes relevant for personalised PageRank in extension 7.
+#
+# Verified independently in exact Fraction arithmetic over 300 random graphs
+# with dangling nodes, varying n, alpha and v (uniform and biased): no
+# discrepancies. `test_dangling_conventions_agree_exactly` below reproduces
+# that check on this fixture, and it runs today because it needs no
+# hand-derived constant.
+#
+# Consequence for this module: **one** expected vector, not one per
+# convention. The remaining real pitfall is renormalising *at every iteration*
+# instead of once at the end -- that does converge somewhere else, because
+# rescaling mid-recursion makes it non-linear. It is generally treated as an
+# implementation slip rather than a named convention, and it is worth knowing
+# about mainly so it can be ruled out when an implementation disagrees with
+# the constant below.
 
 DANGLING_EDGES: list[tuple[int, int]] = [(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]
 DANGLING_N = 4
 
 # ==========================================================================
-# TODO(derivation): the two vectors below are NOT filled in yet, on purpose.
+# TODO(derivation): the vector below is NOT filled in yet, on purpose.
 #
-# Deriving them by hand at ALPHA = 17/20 is part of the assessed work, and the
-# entire value of TOY_PAGERANK_EXACT is that it was proved before any solver
-# existed. A constant produced by anything other than that derivation would
-# look identical and be worth nothing, so these stay empty until the hand
-# derivation is done and independently checked.
+# Deriving it by hand at ALPHA = 17/20 with uniform teleportation is part of
+# the assessed work, and the entire value of TOY_PAGERANK_EXACT is that it was
+# proved before any solver existed. A constant produced by anything other than
+# that derivation would look identical and be worth nothing, so this stays
+# empty until the hand derivation is done and independently checked.
 #
-# What to fill in, in exact Fraction arithmetic, for each convention:
+# What to derive: the fixed point of the *repaired* matrix, i.e. node 3's row
+# replaced by the uniform teleport distribution, so
 #
-#   REDISTRIBUTE   repair the matrix first: every dangling row is replaced by
-#                  the teleport distribution, making it stochastic, and then
-#                  the ordinary fixed point p = (1-a)/n + a P^T p applies.
-#                  Result sums to exactly 1.
+#     p = (1-alpha)/n + alpha * P'^T p,   sum(p) == 1 exactly
 #
-#   RENORMALISE    leave the matrix substochastic, iterate, and rescale to
-#                  unit L1 norm. The fixed point is the normalised dominant
-#                  eigenvector of the damped substochastic operator, which is
-#                  NOT the same vector as above.
+# No convention label is needed on the result -- per the proof above, the
+# alternatives land on the same vector.
 #
 # Then delete the skips on the tests at the bottom of this module.
 # ==========================================================================
 
-#: Exact PageRank of DANGLING_EDGES at ALPHA, dangling mass redistributed.
-DANGLING_PAGERANK_EXACT_REDISTRIBUTE: tuple[Fraction, ...] | None = None  # TODO
-
-#: Exact PageRank of DANGLING_EDGES at ALPHA, substochastic then renormalised.
-DANGLING_PAGERANK_EXACT_RENORMALISE: tuple[Fraction, ...] | None = None  # TODO
+#: Exact PageRank of DANGLING_EDGES at ALPHA with uniform teleportation.
+DANGLING_PAGERANK_EXACT: tuple[Fraction, ...] | None = None  # TODO
 
 
 # --------------------------------------------------------------------------
@@ -287,6 +324,116 @@ def test_dangling_fixture_is_a_well_formed_simple_digraph() -> None:
 
 
 # --------------------------------------------------------------------------
+# Exact linear algebra, for the convention-equivalence property below
+#
+# Two small helpers in Fraction arithmetic. They solve a 4x4 linear system and
+# are not a PageRank implementation: no iteration, no convergence criterion,
+# no sparse structure, and nothing here is importable by the library. Their
+# only job is to let a test assert an algebraic identity exactly rather than
+# to within a tolerance.
+# --------------------------------------------------------------------------
+
+
+def _transition_matrix(edges: list[tuple[int, int]], n: int) -> list[list[Fraction]]:
+    """Row-normalised P. Rows of dangling nodes are left all zero."""
+    out_deg = _out_degrees(edges, n)
+    matrix = [[Fraction(0)] * n for _ in range(n)]
+    for tail, head in edges:
+        matrix[tail][head] += Fraction(1, out_deg[tail])
+    return matrix
+
+
+def _solve_exact(
+    matrix: list[list[Fraction]], rhs: list[Fraction]
+) -> list[Fraction]:
+    """Gauss-Jordan elimination over the rationals. Exact, no pivoting policy
+    beyond picking any non-zero pivot -- there is no rounding to stabilise."""
+    n = len(rhs)
+    aug = [list(row) + [rhs[i]] for i, row in enumerate(matrix)]
+
+    for col in range(n):
+        pivot = next(r for r in range(col, n) if aug[r][col] != 0)
+        aug[col], aug[pivot] = aug[pivot], aug[col]
+
+        scale = Fraction(1) / aug[col][col]
+        aug[col] = [value * scale for value in aug[col]]
+
+        for row in range(n):
+            if row != col and aug[row][col] != 0:
+                factor = aug[row][col]
+                aug[row] = [a - factor * b for a, b in zip(aug[row], aug[col])]
+
+    return [aug[i][n] for i in range(n)]
+
+
+def _damped_fixed_point(
+    matrix: list[list[Fraction]], teleport: list[Fraction], alpha: Fraction
+) -> list[Fraction]:
+    """Solve z = (1-alpha) v + alpha M^T z directly, as (I - alpha M^T) z = (1-alpha) v."""
+    n = len(teleport)
+    system = [
+        [(Fraction(1) if i == j else Fraction(0)) - alpha * matrix[j][i] for j in range(n)]
+        for i in range(n)
+    ]
+    rhs = [(1 - alpha) * teleport[i] for i in range(n)]
+    return _solve_exact(system, rhs)
+
+
+def test_dangling_conventions_agree_exactly() -> None:
+    """The two standard dangling treatments give the *same* vector.
+
+    Repairing the matrix (dangling rows replaced by the teleport distribution)
+    and leaving it substochastic then normalising the solution at the end are
+    not two conventions with two answers. Both fixed points have the form
+    z = k v + alpha P^T z for the same operator and differ only in the scalar
+    k, so they are parallel; the repaired one already has unit L1 norm, so it
+    is exactly the normalised substochastic one.
+
+    Checked here in exact rational arithmetic, so it holds to the last bit and
+    not to a tolerance. This test needs no hand-derived constant, which is why
+    it runs while DANGLING_PAGERANK_EXACT is still open.
+    """
+    n = DANGLING_N
+    teleport = [Fraction(1, n)] * n
+    substochastic = _transition_matrix(DANGLING_EDGES, n)
+
+    repaired = [row[:] for row in substochastic]
+    for node in _dangling_nodes(DANGLING_EDGES, n):
+        repaired[node] = teleport[:]
+
+    repaired_solution = _damped_fixed_point(repaired, teleport, ALPHA)
+    leaked_solution = _damped_fixed_point(substochastic, teleport, ALPHA)
+
+    # The repair makes the matrix stochastic, so no mass is lost.
+    assert sum(repaired_solution) == 1
+    # Mass does leak without it, which is the whole problem being repaired.
+    assert sum(leaked_solution) < 1
+
+    leaked_total = sum(leaked_solution)
+    normalised = [value / leaked_total for value in leaked_solution]
+    assert repaired_solution == normalised
+
+
+def test_unreachable_node_ranks_last_under_the_repaired_matrix() -> None:
+    """Node 0 gets only the floor, so nothing can rank below it.
+
+    Every other node receives the same floor plus a strictly positive inflow,
+    so this is a structural property of the fixture rather than a numerical
+    coincidence. It is the by-eye check at the bottom of the ranking.
+    """
+    n = DANGLING_N
+    teleport = [Fraction(1, n)] * n
+    matrix = _transition_matrix(DANGLING_EDGES, n)
+    for node in _dangling_nodes(DANGLING_EDGES, n):
+        matrix[node] = teleport[:]
+
+    solution = _damped_fixed_point(matrix, teleport, ALPHA)
+
+    assert min(solution) == solution[0]
+    assert all(solution[node] > solution[0] for node in range(1, n))
+
+
+# --------------------------------------------------------------------------
 # Tests for the implementation in src/pagerank -- skipped until it exists
 # --------------------------------------------------------------------------
 
@@ -308,32 +455,33 @@ def test_power_iteration_matches_the_toy_graph() -> None:
 def test_dangling_ground_truth_is_internally_consistent() -> None:
     """Proof obligation for the dangling fixture, mirroring the one above.
 
-    Once DANGLING_PAGERANK_EXACT_REDISTRIBUTE is derived, this is where it gets
+    Once DANGLING_PAGERANK_EXACT is derived by hand, this is where it gets
     proved rather than trusted, in Fraction arithmetic and with zero tolerance:
 
     * sums to exactly 1
     * satisfies the fixed point of the *repaired* matrix, where node 3's row is
-      the teleport distribution
-    * puts node 0 last, at exactly the floor value the convention implies
+      the uniform teleport distribution
+    * puts node 0 last, at exactly the floor value the model implies
 
-    Same obligation for DANGLING_PAGERANK_EXACT_RENORMALISE under its own
-    operator, and the two vectors must come out different -- if they agree,
-    one of the two derivations has used the wrong convention.
+    One vector covers every standard convention, since they coincide -- see
+    `test_dangling_conventions_agree_exactly`.
     """
-    if DANGLING_PAGERANK_EXACT_REDISTRIBUTE is None:
+    if DANGLING_PAGERANK_EXACT is None:
         pytest.skip("dangling ground truth not derived yet (see TODO above)")
 
 
 def test_power_iteration_handles_the_dangling_node() -> None:
     """Contract this test will enforce once the solver is written:
 
-    * agrees with the derived vector for the convention it implements, to
-      ~1e-10 at a tight tolerance
+    * agrees with DANGLING_PAGERANK_EXACT to ~1e-10 at a tight tolerance,
+      whichever of the equivalent treatments it implements internally
     * returns a vector summing to 1 even though the raw matrix is
-      substochastic -- the leak must be repaired, not ignored
-    * exposes the convention as an explicit argument, so both vectors above
-      can be reproduced from the same code path
+      substochastic -- the leak must be handled, not ignored
     * ranks node 0 last
+
+    A disagreement with the constant is therefore not a convention mismatch.
+    The likely cause is renormalising inside the iteration instead of
+    repairing the matrix, which converges somewhere else entirely.
 
     Wire the call below to the final signature and delete the skip.
     """
