@@ -563,7 +563,9 @@ convention-independent ground truth** here. Whatever gets derived has to name
 its convention, and the obvious trap is deriving the vector under one convention
 and testing an implementation that uses another.
 
-One correction to what I assumed while writing this. The three conventions do
+One correction to what I assumed while writing this. *(Half right. Superseded
+by the second correction at the end of this entry — left standing because the
+way it was half right is the instructive part.)* The three conventions do
 not give three different answers: with the **uniform** teleport vector this
 project uses, redistributing the leaked mass uniformly and redistributing it
 along the teleport vector are *the same operation*. They only diverge under
@@ -576,12 +578,16 @@ kind of thing that reads as sloppiness in a presentation if the count is wrong.
 
 Carried forward, with status under the new brief:
 
-- **Dangling-node convention.** No longer deferrable: it is core question 2.
-  Two distinct answers under uniform teleportation (see above) — repair the
-  matrix by replacing dangling rows with the teleport distribution, or leave it
-  substochastic and renormalise. Derive the fixture constants for both, since
-  the test that proves them also has to show they differ, and report the AS
-  ranking under both.
+- **Dangling-node convention.** Core question 2, and mostly *resolved* by the
+  equivalence proved in the correction below: under uniform teleportation the
+  standard treatments all land on the same vector, so there is **one** answer
+  to derive and one ranking to report, not several. What is left is
+  presentation rather than decision — derive `DANGLING_PAGERANK_EXACT` by hand
+  for the repaired matrix, implement that repair, and make the equivalence
+  itself part of the written answer instead of comparing rankings that cannot
+  differ. The one thing still worth measuring on the real graph: how many ASes
+  actually dangle, and how much mass they hold, since that is what decides
+  whether the treatment matters at all here.
 - **Direction of peering links** (68.3% of edges) and **inversion of
   customer-provider links**: unchanged, and now explicitly part of core
   question 1, which asks which choices are facts from the data and which are
@@ -601,3 +607,100 @@ Carried forward, with status under the new brief:
   **10 December**. The new brief does not move either date, but it does mean the core is now a smaller,
   better-defined target than the three original research questions were — which
   is the first genuinely reassuring thing about the change.
+
+### Correction, same day — the dangling conventions are all the same convention
+
+The note earlier in this entry got half of it right and stated the other half
+with more confidence than it deserved. Recording the whole thing rather than
+quietly fixing the files, because the mistake is more useful to the
+presentation than the fix is.
+
+**What I assumed.** That after collapsing "redistribute uniformly" and
+"redistribute along the teleport vector" into one operation, two genuinely
+different answers were left: repair the matrix, or leave it substochastic and
+renormalise. I wrote two `TODO` constants on that basis, and — worse — a
+docstring instructing that the two derived vectors **must come out different**,
+with a note that agreement would mean one of the derivations had used the wrong
+convention.
+
+**Why it is false.** Let `P` be the row-normalised transition matrix, with zero
+rows at the dangling nodes; `v` the teleport vector; `alpha` the damping
+factor; and `d` the 0/1 indicator vector of dangling rows. The repaired matrix
+is `P' = P + d v^T`, so `P'^T = P^T + v d^T`, and its fixed point satisfies
+
+```
+y = (1-alpha) v + alpha P'^T y
+  = (1-alpha) v + alpha P^T y + alpha v (d^T y)
+  = [(1-alpha) + alpha m] v + alpha P^T y        with m = d^T y, a scalar
+```
+
+while the substochastic fixed point satisfies
+
+```
+x = (1-alpha) v + alpha P^T x
+```
+
+Both are of the form `z = k v + alpha P^T z`, whose solution is
+`z = k (I - alpha P^T)^-1 v`. Same operator, same direction `v`; the two
+differ **only** in the scalar `k`. So `y` and `x` are parallel, and since
+`||y||_1 = 1` by construction, `y` is exactly `x` normalised — which is what
+the renormalisation convention computes.
+
+Note what the proof does *not* assume: nothing about `v`. The equivalence
+`repair == renormalise` holds for any teleport vector, biased or not. The
+uniform assumption is only needed for the other half, `redistribute uniformly
+== redistribute along v`, which is the part I had already got right. Put
+together: with the uniform teleportation this project uses, **all three options
+collapse to one answer, not two.** Under a biased `v` there would be two, and
+they would split along a different line than the one I drew.
+
+**How it was verified.** Exact rational arithmetic over 300 random graphs with
+dangling nodes, varying `n`, `alpha` and `v` across uniform and biased: zero
+discrepancies. On `DANGLING_EDGES` at `alpha = 17/20` the two constructions
+agree bit for bit. That check now lives in the suite as
+`test_dangling_conventions_agree_exactly`, built both ways in `Fraction`
+arithmetic with an exact equality assertion — no tolerance. It depends on no
+hand-derived constant, so it runs today, and it is a better test than the one
+it replaces: it demonstrates *why* the conventions coincide rather than
+asserting in a comment that they do not.
+
+**What actually does give a different vector:** renormalising at *every
+iteration* instead of once at the end. Rescaling inside the recursion makes it
+non-linear, so the argument above does not apply and the iteration converges
+somewhere else. That is generally regarded as an implementation slip rather
+than a named convention, and it is worth knowing mainly as a diagnosis: if the
+solver ever disagrees with `DANGLING_PAGERANK_EXACT`, this is the first thing
+to check, and "it implements a different convention" is not an available
+excuse.
+
+**Why this was not a wording problem.** Three concrete things were wrong, not
+one sentence:
+
+- Two `TODO` constants that would have been filled with identical numbers, so
+  the second carried no information and the work of deriving it twice would
+  have produced nothing.
+- A proof obligation pointing the wrong way. A correct hand derivation would
+  have produced two equal vectors, the docstring would have called that a
+  convention error, and the most likely response to that would have been to go
+  looking for a bug in a correct derivation. A test that fires on correct work
+  is worse than no test.
+- The claim that node 0, being unreachable, reads out which convention is in
+  force. It does not: it holds the same value under treatments that produce the
+  same vector. Node 0 is still useful — it sits at exactly the floor the model
+  imposes and must rank last, which is the by-eye check at the bottom end, the
+  mirror of node 3 in the first fixture — but it discriminates nothing.
+
+**What it changes for the write-up, which is the real point.** Core question 2
+was framed as "what changes in the ranking between conventions", and the
+answer is now known in advance: nothing does, and that is provable in four
+lines. That is a better answer than a comparison table. It turns a requirement
+that would have been discharged by running the solver twice into a short
+argument about why running it twice is unnecessary — which is squarely what the
+rubric means by preferring a simple, correct, well-explained implementation to
+an elaborate one. `README.md` has been reworded so the question does not
+presuppose that something changes.
+
+Filed under things to be less sure about: the two halves of that collapse
+argument needed different assumptions, and I checked one of them and assumed
+the other. The half I checked was the one I had just found; the half I assumed
+was the one that felt like common knowledge.
