@@ -748,3 +748,106 @@ so an import failure cannot hide behind a skip count again.
   dangling-node redistribution, validated on the two fixtures in notebook 00;
   then the CAIDA parser and the dangling census on the real graph; then the
   core ranking and the in-degree comparison.
+
+---
+
+## 2026-10-15 — Solver and toy-graph validation
+
+The first code that other work imports: a sparse graph structure, the power
+method with dangling-node redistribution, and ranking helpers, all validated on
+the two hand-checked fixtures in a first notebook. The implementation stays
+small on purpose — the rubric rewards a correct, well-explained solver over a
+clever one.
+
+### Decisions
+
+- **Store the transpose `P^T`, not `P`.** The power step multiplies `P^T x` and
+  nothing in the iteration needs `P` itself, so storing the matrix the solver
+  actually touches avoids transposing on every call. CSR is the right sparse
+  layout because its mat-vec is the fast path, and `P^T` in CSR is exactly what
+  the mat-vec consumes.
+- **The graph object describes the data; the solver repairs the dangling
+  leak.** `from_edge_list` leaves a dangling node's column of `P^T` all zero
+  rather than writing a teleport row into it. Keeping the structure a faithful
+  record of the edges means the same object serves the in-degree baseline and
+  any teleport convention without being rebuilt, and it keeps the dangling
+  decision in one place — the solver — where it is tested.
+- **Duplicate edges are dropped and counted, never summed.** Summing a repeated
+  `i -> j` into a double weight would silently change the out-distribution of
+  node `i`; counting the drop instead keeps `1/out-degree` correct and leaves a
+  number to report on the real graph. Self-loops are removed first and counted
+  separately, so a duplicated self-loop is one loop removed, not a duplicate.
+- **Redistribute the dangling mass inside the update, normalise once at the
+  end.** The update adds `alpha * m` back along the teleport vector each step,
+  which is algebraically the repaired-matrix construction and keeps the iterate
+  summing to 1. The final division by `sum(x)` only clears floating-point
+  drift. The vector is never rescaled inside the loop: that makes the map
+  non-linear and converges elsewhere — the one real trap, and the first thing
+  to check if the solver ever disagrees with the ground truth. This is the
+  equivalence the previous entry proved, now implemented and seen numerically
+  in notebook 00.
+- **Deterministic tie-breaking by ascending index.** The ranking helper breaks
+  equal scores by index via `lexsort`, so the order does not depend on the sort
+  backend. The in-degree comparison in notebook 02 compares orderings, and an
+  ordering that changed between runs would make that table unreproducible.
+
+### What broke
+
+- **The editable install, repaired.** The move-induced import failure diagnosed
+  in the previous entry was fixed first, by reinstalling with
+  `pip install -e ".[dev]"`. The `.pth` finder now points at the current
+  `src/`, and the three test skips changed from `No module named 'pagerank'` to
+  "not implemented yet", which is the signal that the suite is actually
+  exercising the package again. `pip freeze --exclude-editable` was identical
+  before and after (113 lines), confirming no version moved — only the path.
+- **The `.venv` console scripts still carry the old absolute path.**
+  `.venv/bin/pip` and `.venv/bin/jupyter` fail with
+  `bad interpreter: .../Development/pagerank-internet-as/.venv/bin/python`,
+  because 50 of 54 scripts in `.venv/bin` hard-code the pre-move shebang.
+  Worked around by invoking everything through the interpreter module path:
+  `.venv/bin/python -m pip`, `.venv/bin/python -m pytest`,
+  `.venv/bin/python -m nbconvert`. The `python` symlinks themselves were not
+  rewritten by the move, so this is reliable. A full fix would be to recreate
+  the environment, deferred because it is not needed to run anything.
+- **Stale bytecode printed the wrong skip locations.** pytest reported skip
+  paths as `../../pagerank-internet-as/tests/...` because
+  `tests/__pycache__/*.pyc` stored the old absolute `co_filename`; pytest keys
+  its rewrite cache on mtime and size, not path, so it did not notice the move.
+  Harmless, and it cleared on the next write of each file.
+
+### Verified
+
+- `.venv/bin/python -m pytest -q`: **44 passed, 2 skipped**. The two skips are
+  both `dangling ground truth not derived yet`, the only skip the acceptance
+  check allows while `DANGLING_PAGERANK_EXACT` is unfilled. New tests: 11 for
+  the graph structure, 10 for the solver, 8 for the ranking helpers, plus the
+  two previously skipped solver tests in the toy-graph module now running their
+  mass-conservation and node-0-last assertions.
+- Toy graph at `alpha = 0.85`, `tol = 1e-12`: solver agrees with the exact
+  rational vector to a maximum absolute error of `1.1e-13`, converges in 56
+  iterations, node 3 lands at exactly `0.0375 = (1-alpha)/4`, ranking `[2,0,1,3]`.
+- Directed 3-cycle is uniform `(1/3,1/3,1/3)` to `1e-10` at `alpha` in
+  `{0.5, 0.85, 0.99}`.
+- Dangling fixture: solver agrees with `networkx.pagerank` to `1e-9`, sums to 1
+  to `1e-12`, ranks the unreachable node 0 last. Without treatment the mass
+  falls to `0.292` and stays there; the solver's vector equals the leaked
+  vector normalised at the end to `8.9e-14`, the convention-equivalence proof
+  seen numerically.
+- Residual contraction ratio on the toy graph stays at or below `alpha + 0.05`
+  for every late step, matching the contraction-factor bound.
+- `notebooks/00_toy_graph.ipynb` executes top to bottom with
+  `nbconvert --execute` in about 2 seconds (well under the 60-second budget),
+  committed with outputs cleared.
+
+### Open items
+
+- `DANGLING_PAGERANK_EXACT` is still underived by hand and so still `None`; the
+  two solver tests that would consume it stay skipped. The solver is ready for
+  it — the mass-conservation and ranking parts already run and pass, so filling
+  the constant only switches on the exact-agreement assertion. This is the
+  hand-derivation work the course grades and is not done here.
+- The dangling census on the real graph (how many ASes dangle, how much mass
+  they hold) is still the measurement that decides whether the treatment
+  matters in practice. Carried forward from the previous entry; unchanged.
+- Next: the CAIDA parser and that census, then the core ranking and the
+  in-degree comparison.
