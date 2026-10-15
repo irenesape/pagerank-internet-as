@@ -704,3 +704,47 @@ Filed under things to be less sure about: the two halves of that collapse
 argument needed different assumptions, and I checked one of them and assumed
 the other. The half I checked was the one I had just found; the half I assumed
 was the one that felt like common knowledge.
+
+---
+
+## 2026-10-15 — Environment check before the solver work starts
+
+No code yet. Before writing the first module that has to be imported, the
+environment was checked end to end, and it was not what the previous entries
+describe.
+
+### What broke
+
+**The editable install stopped resolving when the repository moved.** The
+suite reported `12 passed, 3 skipped` and looked healthy; the skip reasons said
+`could not import 'pagerank': No module named 'pagerank'`. Cause: the
+repository was moved from `~/Development/pagerank-internet-as` to
+`~/Development/INE/pagerank-internet-as`, and an editable install is an
+absolute path. The finder in
+`.venv/lib/python3.11/site-packages/__editable__.pagerank_internet_as-0.1.0.pth`
+still contains `/Users/<user>/Development/pagerank-internet-as/src`.
+Fix: `pip install -e ".[dev]"` again, at the start of the next session and
+before any module that imports the package. No lock regeneration: the
+installed versions do not change, only the project's own path.
+
+Two lessons. First, this is the same class of problem as the September
+lock-file gotcha: anything that embeds an absolute path breaks on a move or a
+clone, and an editable install is machine-local state. Second, **a skip is not
+a pass.** The suite was green for weeks while the package it exists to test
+could not be imported. From now on the acceptance check names the one skip
+that is allowed (`dangling ground truth not derived yet`) and its exact reason,
+so an import failure cannot hide behind a skip count again.
+
+### Open items
+
+- The author's surname is now written without its accent in `LICENSE`,
+  `pyproject.toml` and `README.md`, and the university is named in English.
+  Deliberate: every file a reader or a packaging tool touches stays plain
+  ASCII, so nothing depends on how a terminal, a form or a citation generator
+  handles accented characters. The accent is still in the history.
+- Eleven commits ahead of `origin/main`, unpushed. Push before the solver work
+  starts, so the history stays reviewable in small steps.
+- Next, in this order: the sparse graph structure and the power method with
+  dangling-node redistribution, validated on the two fixtures in notebook 00;
+  then the CAIDA parser and the dangling census on the real graph; then the
+  core ranking and the in-degree comparison.

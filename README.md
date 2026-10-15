@@ -121,7 +121,7 @@ complexity analysis rather than on tooling.
 
 Programming project for **Internet and Networked Economy (INE)**, Master's
 degree in Advanced Telecommunication Technologies (MATT), taught at the ETSETB,
-Universitat Politecnica de Catalunya. Worth 30% of the course grade. Delivered
+Polytechnic University of Catalonia (UPC). Worth 30% of the course grade. Delivered
 as a narrative Jupyter notebook and presented on 10 December 2026.
 
 The work is **Project 3.4: PageRank on a Non-Web Graph** from the closed list of
