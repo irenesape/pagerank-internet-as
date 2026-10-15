@@ -173,3 +173,157 @@ def test_reader_rejects_a_line_with_the_wrong_field_count(tmp_path: Path) -> Non
 def test_reader_returns_an_as_rel_snapshot(plain_file: Path) -> None:
     """Sanity: the public return type is the documented dataclass."""
     assert isinstance(read_as_rel(plain_file), AsRelSnapshot)
+
+
+# --------------------------------------------------------------------------
+# Builder
+# --------------------------------------------------------------------------
+
+from pagerank.caida import (  # noqa: E402  (grouped with the builder tests)
+    EdgeListBuild,
+    build_edge_list,
+    index_of,
+    load_build,
+    save_build,
+)
+from pagerank.graph import from_edge_list  # noqa: E402
+from pagerank.power import pagerank_power  # noqa: E402
+
+
+def _asn_edges(build: EdgeListBuild) -> set[tuple[int, int]]:
+    """Map a build's index edges back to ASN pairs, as an unordered set."""
+    return {
+        (int(build.asns[t]), int(build.asns[h]))
+        for t, h in build.edges
+    }
+
+
+def test_builder_default_direction_and_peering(plain_file: Path) -> None:
+    """Defaults: c2p votes customer -> provider, peering both ways.
+
+    The worked example in the design: the five relationships produce the seven
+    ASN edges below, over the five ASNs 1,2,3,4,9.
+    """
+    snap = read_as_rel(plain_file)
+    build = build_edge_list(snap)
+
+    assert np.array_equal(build.asns, np.array([1, 2, 3, 4, 9], dtype=np.int64))
+    assert build.n == 5
+    assert _asn_edges(build) == {
+        (3, 1),  # 1|3|-1 -> customer 3 to provider 1
+        (3, 2),  # 2|3|-1
+        (1, 2),  # 1|2|0  both directions
+        (2, 1),
+        (3, 9),  # 3|9|0  both directions
+        (9, 3),
+        (4, 9),  # 9|4|-1 -> customer 4 to provider 9
+    }
+    assert build.n_c2p_used == 3
+    assert build.n_p2p_used == 2
+    assert build.edges.shape[0] == 7
+
+
+def test_builder_peering_none_drops_peer_edges(plain_file: Path) -> None:
+    """``peering='none'`` keeps only the three customer-provider edges."""
+    snap = read_as_rel(plain_file)
+    build = build_edge_list(snap, peering="none")
+    assert build.edges.shape[0] == 3
+    assert _asn_edges(build) == {(3, 1), (3, 2), (4, 9)}
+
+
+def test_builder_vote_reversal_flips_the_ranking(tmp_path: Path) -> None:
+    """One c2p link ranks the endpoint the edge points to above the other.
+
+    On a two-AS file ``1|2|-1`` (1 is provider, 2 is customer): under
+    ``customer_to_provider`` the edge is 2 -> 1, so the provider 1 ranks first;
+    under ``provider_to_customer`` it is 1 -> 2, so the customer 2 ranks first.
+    This is the whole point of making the vote a parameter.
+    """
+    path = tmp_path / "twoas.as-rel.txt"
+    path.write_text("# input clique: 1\n1|2|-1\n", encoding="ascii")
+    snap = read_as_rel(path)
+
+    for vote, winner_asn in (
+        ("customer_to_provider", 1),
+        ("provider_to_customer", 2),
+    ):
+        build = build_edge_list(snap, vote=vote)
+        graph = from_edge_list(
+            [(int(t), int(h)) for t, h in build.edges], build.n
+        )
+        result = pagerank_power(graph, alpha=0.85)
+        top_index = int(result.vector.argmax())
+        assert int(build.asns[top_index]) == winner_asn, vote
+
+
+def test_builder_exclusion_drops_relationships_and_orphaned_asns(
+    plain_file: Path,
+) -> None:
+    """Excluding AS 9 drops its two relationships and AS 4 with them.
+
+    AS 4 appears only in ``9|4|-1``; once that relationship is dropped, AS 4
+    has no surviving relationship and must disappear from the node set. AS 9's
+    other relationship ``3|9|0`` is dropped too, but AS 3 survives via its c2p
+    links, so only 4 and 9 are gone.
+    """
+    snap = read_as_rel(plain_file)
+    build = build_edge_list(snap, exclude_asns=[9])
+
+    assert np.array_equal(build.asns, np.array([1, 2, 3], dtype=np.int64))
+    assert build.excluded_asns == (9,)
+    assert build.n_relationships_excluded == 2
+    assert build.n_asns_dropped == 2  # ASNs 4 and 9
+    assert _asn_edges(build) == {(3, 1), (3, 2), (1, 2), (2, 1)}
+
+
+def test_builder_rejects_bad_parameters(plain_file: Path) -> None:
+    """``peering`` and ``vote`` are validated."""
+    snap = read_as_rel(plain_file)
+    with pytest.raises(ValueError, match="peering"):
+        build_edge_list(snap, peering="sometimes")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="vote"):
+        build_edge_list(snap, vote="upwards")  # type: ignore[arg-type]
+
+
+def test_index_of_raises_on_an_unknown_asn() -> None:
+    """A query ASN absent from the sorted set names itself in the error."""
+    asns = np.array([1, 2, 3, 9], dtype=np.int64)
+    assert np.array_equal(index_of(asns, np.array([9, 1])), np.array([3, 0]))
+    with pytest.raises(KeyError, match="7"):
+        index_of(asns, np.array([1, 7]))
+
+
+def test_save_load_round_trips_exactly(plain_file: Path) -> None:
+    """A saved build loads back equal: arrays identical, scalars restored."""
+    snap = read_as_rel(plain_file)
+    build = build_edge_list(snap, exclude_asns=[9])
+
+    target = plain_file.parent / "build.npz"
+    save_build(build, target)
+    loaded = load_build(target)
+
+    assert np.array_equal(loaded.asns, build.asns)
+    assert np.array_equal(loaded.edges, build.edges)
+    assert loaded.peering == build.peering
+    assert loaded.vote == build.vote
+    assert loaded.excluded_asns == build.excluded_asns
+    assert loaded.n_c2p_used == build.n_c2p_used
+    assert loaded.n_p2p_used == build.n_p2p_used
+    assert loaded.n_relationships_excluded == build.n_relationships_excluded
+    assert loaded.n_asns_dropped == build.n_asns_dropped
+    assert loaded.snapshot_path == build.snapshot_path
+
+
+def test_save_writes_the_snapshot_md5_into_the_sidecar(plain_file: Path) -> None:
+    """The sidecar records the md5 of the raw snapshot for provenance."""
+    import hashlib
+    import json
+
+    snap = read_as_rel(plain_file)
+    build = build_edge_list(snap)
+    target = plain_file.parent / "build2.npz"
+    save_build(build, target)
+
+    sidecar = json.loads((plain_file.parent / "build2.npz.json").read_text())
+    expected = hashlib.md5(plain_file.read_bytes()).hexdigest()
+    assert sidecar["snapshot_md5"] == expected

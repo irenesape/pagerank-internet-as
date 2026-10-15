@@ -24,9 +24,11 @@ can be rebuilt under every convention without re-reading the file.
 from __future__ import annotations
 
 import bz2
+import hashlib
+import json
 import os
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Iterable, Literal
 
 import numpy as np
 
@@ -179,4 +181,301 @@ def read_as_rel(path: str | os.PathLike) -> AsRelSnapshot:
         relationships=relationships,
         step=step,
         n_comment_lines=n_comment_lines,
+    )
+
+
+# --------------------------------------------------------------------------
+# From snapshot to edge list: this is where the modelling choices live.
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class EdgeListBuild:
+    """A snapshot turned into node indices and a directed edge list.
+
+    The three parameters that distinguish one build from another are recorded
+    alongside the result so the notebook can report what each one did, and the
+    counts make the effect of exclusion and of dropping peering auditable.
+
+    Attributes:
+        asns: ``(n,)`` int64, the ASNs surviving exclusion, sorted ascending.
+            Node index ``i`` is ASN ``asns[i]``; the sorted order is what makes
+            :func:`index_of` a binary search.
+        edges: ``(k, 2)`` int64 of node indices, ``tail -> head`` in the vote
+            direction. Duplicates and self-loops are *not* removed here; that is
+            :func:`pagerank.graph.from_edge_list`'s job, which also counts them.
+        peering: ``"both"`` or ``"none"``, the peering convention used.
+        vote: ``"customer_to_provider"`` or ``"provider_to_customer"``, which
+            way a customer-provider link points.
+        excluded_asns: The ASNs excluded, sorted ascending.
+        n_c2p_used: Customer-provider relationships that contributed an edge
+            (i.e. survived exclusion).
+        n_p2p_used: Peer-to-peer relationships that survived exclusion. Each
+            contributes two edges under ``both`` and none under ``none``.
+        n_relationships_excluded: Relationships dropped because an endpoint was
+            in ``excluded_asns``.
+        n_asns_dropped: ASNs present in the snapshot but absent from ``asns``,
+            i.e. those that only ever appeared in excluded relationships.
+        snapshot_path: The path of the snapshot this build came from.
+    """
+
+    asns: np.ndarray
+    edges: np.ndarray
+    peering: str
+    vote: str
+    excluded_asns: tuple[int, ...]
+    n_c2p_used: int
+    n_p2p_used: int
+    n_relationships_excluded: int
+    n_asns_dropped: int
+    snapshot_path: str
+
+    @property
+    def n(self) -> int:
+        """Number of nodes (distinct surviving ASNs)."""
+        return int(self.asns.shape[0])
+
+
+def index_of(asns: np.ndarray, query: np.ndarray) -> np.ndarray:
+    """Map ASNs to node indices against a sorted ASN array.
+
+    Args:
+        asns: Sorted-ascending int64 array of ASNs (an :class:`EdgeListBuild`'s
+            ``asns``).
+        query: ASNs to look up.
+
+    Returns:
+        An int64 array ``pos`` with ``asns[pos] == query`` elementwise.
+
+    Raises:
+        KeyError: If any ASN in ``query`` is not present, naming the first one.
+    """
+    query = np.asarray(query, dtype=np.int64)
+    pos = np.searchsorted(asns, query)
+    # searchsorted can return n for values past the end; clip before indexing.
+    clipped = np.clip(pos, 0, asns.shape[0] - 1)
+    bad = asns[clipped] != query
+    if np.any(bad):
+        first = int(query[np.argmax(bad)])
+        raise KeyError(f"ASN {first} is not in the index")
+    return pos
+
+
+def build_edge_list(
+    snapshot: AsRelSnapshot,
+    *,
+    peering: Literal["both", "none"] = "both",
+    vote: Literal[
+        "customer_to_provider", "provider_to_customer"
+    ] = "customer_to_provider",
+    exclude_asns: Iterable[int] = (),
+) -> EdgeListBuild:
+    """Turn a snapshot into an index map and a directed edge list.
+
+    Three modelling choices are parameters rather than defaults baked into the
+    data, so notebook 01 can build and compare every variant from one read:
+
+    * ``vote`` -- which endpoint of a customer-provider link the edge points
+      to. The default ``customer_to_provider`` is the reading the lab notebook
+      argued for: a customer paying for transit endorses its provider, so the
+      edge runs customer -> provider and mass flows up towards the core.
+    * ``peering`` -- whether a peer-to-peer link contributes edges at all.
+      ``both`` adds an edge each way (peering is symmetric); ``none`` adds
+      nothing, which makes the transit-free clique dangle.
+    * ``exclude_asns`` -- ASNs to drop entirely, with every relationship that
+      touches them. Used to study the effect of the IXP ASes.
+
+    Exclusion happens *before* the ASN set is built, so an AS that only ever
+    appeared next to an excluded one disappears from the graph and is counted
+    in ``n_asns_dropped``.
+
+    Args:
+        snapshot: The parsed snapshot.
+        peering: Peering convention, ``"both"`` or ``"none"``.
+        vote: Customer-provider edge direction.
+        exclude_asns: ASNs to drop, with all their relationships.
+
+    Returns:
+        An :class:`EdgeListBuild`. Edges are node indices into ``asns``, not
+        ASNs. Duplicates and self-loops are left in for ``from_edge_list`` to
+        remove and count.
+
+    Raises:
+        ValueError: If ``peering`` or ``vote`` is not one of the allowed values.
+    """
+    if peering not in ("both", "none"):
+        raise ValueError(f"peering must be 'both' or 'none', got {peering!r}")
+    if vote not in ("customer_to_provider", "provider_to_customer"):
+        raise ValueError(
+            "vote must be 'customer_to_provider' or 'provider_to_customer', "
+            f"got {vote!r}"
+        )
+
+    rel = snapshot.relationships
+    as1, as2, kind = rel[:, 0], rel[:, 1], rel[:, 2]
+
+    excluded = np.array(sorted(set(int(a) for a in exclude_asns)), dtype=np.int64)
+    excluded_tuple = tuple(int(a) for a in excluded)
+
+    # Distinct ASNs in the whole snapshot, for the dropped-count below.
+    all_asns = np.unique(rel[:, :2])
+
+    # Drop relationships touching an excluded ASN, before anything else.
+    if excluded.size:
+        touched = np.isin(as1, excluded) | np.isin(as2, excluded)
+    else:
+        touched = np.zeros(rel.shape[0], dtype=bool)
+    n_relationships_excluded = int(touched.sum())
+    keep = ~touched
+
+    as1, as2, kind = as1[keep], as2[keep], kind[keep]
+
+    # The surviving ASN set defines the node indices. Sorted so index_of works.
+    if as1.size:
+        asns = np.unique(np.concatenate([as1, as2]))
+    else:
+        asns = np.array([], dtype=np.int64)
+    n_asns_dropped = int(all_asns.shape[0] - asns.shape[0])
+
+    is_c2p = kind == C2P
+    is_p2p = kind == P2P
+    n_c2p_used = int(is_c2p.sum())
+    n_p2p_used = int(is_p2p.sum())
+
+    # Build edges as ASN pairs first, then map once to node indices.
+    tails: list[np.ndarray] = []
+    heads: list[np.ndarray] = []
+
+    # Customer-provider rows are stored (provider, customer) = (as1, as2).
+    prov, cust = as1[is_c2p], as2[is_c2p]
+    if vote == "customer_to_provider":
+        tails.append(cust)
+        heads.append(prov)
+    else:  # provider_to_customer
+        tails.append(prov)
+        heads.append(cust)
+
+    # Peer-to-peer rows: symmetric under "both", absent under "none".
+    if peering == "both":
+        pa, pb = as1[is_p2p], as2[is_p2p]
+        tails.append(pa)
+        heads.append(pb)
+        tails.append(pb)
+        heads.append(pa)
+
+    tail_asns = (
+        np.concatenate(tails) if tails else np.array([], dtype=np.int64)
+    )
+    head_asns = (
+        np.concatenate(heads) if heads else np.array([], dtype=np.int64)
+    )
+
+    if tail_asns.size:
+        edges = np.column_stack(
+            [index_of(asns, tail_asns), index_of(asns, head_asns)]
+        ).astype(np.int64)
+    else:
+        edges = np.empty((0, 2), dtype=np.int64)
+
+    return EdgeListBuild(
+        asns=asns.astype(np.int64),
+        edges=edges,
+        peering=peering,
+        vote=vote,
+        excluded_asns=excluded_tuple,
+        n_c2p_used=n_c2p_used,
+        n_p2p_used=n_p2p_used,
+        n_relationships_excluded=n_relationships_excluded,
+        n_asns_dropped=n_asns_dropped,
+        snapshot_path=snapshot.path,
+    )
+
+
+# --------------------------------------------------------------------------
+# Persisting a build under data/processed/
+# --------------------------------------------------------------------------
+
+
+def _md5_of_file(path: str | os.PathLike, chunk: int = 1 << 20) -> str:
+    """Return the hex md5 of a file, read in 1 MiB chunks.
+
+    Stored in the sidecar so a loaded build can be traced back to the exact raw
+    snapshot it was built from, without copying the raw data into the repo.
+    """
+    digest = hashlib.md5()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(chunk), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def save_build(build: EdgeListBuild, path: str | os.PathLike) -> None:
+    """Write a build to ``path`` as an ``.npz`` plus a ``.json`` sidecar.
+
+    The arrays go into ``np.savez_compressed`` under ``path``; the scalar
+    fields and the md5 of the raw snapshot go into ``<path>.json`` beside it.
+    The split keeps the large arrays compressed while the metadata stays
+    human-readable.
+
+    Args:
+        build: The build to persist.
+        path: Target path for the ``.npz`` (the sidecar is ``<path>.json``).
+    """
+    name = os.fspath(path)
+    np.savez_compressed(name, asns=build.asns, edges=build.edges)
+    # savez_compressed appends .npz if absent; mirror that for the sidecar.
+    npz_name = name if name.endswith(".npz") else name + ".npz"
+
+    try:
+        snapshot_md5 = _md5_of_file(build.snapshot_path)
+    except OSError:
+        # The raw snapshot may be absent (it is never in the repo); record the
+        # absence rather than failing the save.
+        snapshot_md5 = None
+
+    sidecar = {
+        "peering": build.peering,
+        "vote": build.vote,
+        "excluded_asns": list(build.excluded_asns),
+        "n_c2p_used": build.n_c2p_used,
+        "n_p2p_used": build.n_p2p_used,
+        "n_relationships_excluded": build.n_relationships_excluded,
+        "n_asns_dropped": build.n_asns_dropped,
+        "snapshot_path": build.snapshot_path,
+        "snapshot_md5": snapshot_md5,
+    }
+    with open(npz_name + ".json", "w", encoding="ascii") as handle:
+        json.dump(sidecar, handle, indent=2, sort_keys=True)
+
+
+def load_build(path: str | os.PathLike) -> EdgeListBuild:
+    """Read back a build saved by :func:`save_build`.
+
+    Args:
+        path: The ``.npz`` path passed to :func:`save_build` (with or without
+            the ``.npz`` suffix).
+
+    Returns:
+        An :class:`EdgeListBuild` equal to the one saved: arrays identical,
+        scalar fields restored from the sidecar.
+    """
+    name = os.fspath(path)
+    npz_name = name if name.endswith(".npz") else name + ".npz"
+    with np.load(npz_name) as data:
+        asns = data["asns"].astype(np.int64)
+        edges = data["edges"].astype(np.int64)
+    with open(npz_name + ".json", "r", encoding="ascii") as handle:
+        sidecar = json.load(handle)
+
+    return EdgeListBuild(
+        asns=asns,
+        edges=edges,
+        peering=sidecar["peering"],
+        vote=sidecar["vote"],
+        excluded_asns=tuple(sidecar["excluded_asns"]),
+        n_c2p_used=sidecar["n_c2p_used"],
+        n_p2p_used=sidecar["n_p2p_used"],
+        n_relationships_excluded=sidecar["n_relationships_excluded"],
+        n_asns_dropped=sidecar["n_asns_dropped"],
+        snapshot_path=sidecar["snapshot_path"],
     )
