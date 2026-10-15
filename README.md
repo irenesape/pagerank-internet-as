@@ -193,8 +193,10 @@ Verify the environment:
 pytest
 ```
 
-One test is reported as skipped until the solver it targets is written; the
-remaining tests validate the ground truth the solver will be checked against.
+Three tests report as skipped: two target the solver, which is not written yet,
+and one targets the dangling-node ground truth, which is still being derived by
+hand. The rest validate the fixtures and the exact values the solver will be
+checked against.
 
 ### Which requirements file to use
 
