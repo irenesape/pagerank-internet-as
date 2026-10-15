@@ -91,8 +91,7 @@ So, two modes:
 - **For the final deliverable:** commit the notebooks **fully executed**, top to
   bottom, from a single clean run (Restart Kernel and Run All). The submission
   is a narrative notebook, and most readers will open it on GitHub without
-  running anything. An unexecuted notebook looks like an empty
-  file to them.
+  running anything. An unexecuted notebook looks like an empty file to them.
 
 Procedure for the final version: freeze the code, restart and run all, check
 every figure rendered, commit as a single dedicated commit, and tag it. Do not
@@ -604,9 +603,10 @@ Carried forward, with status under the new brief:
 - **Distinct AS count and maximum ASN**, still unmeasured, still blocking the
   dense-versus-dictionary indexing decision. First thing to do with real data.
 - Schedule unchanged: presentable by **25 November 2026**, presentation
-  **10 December**. The new brief does not move either date, but it does mean the core is now a smaller,
-  better-defined target than the three original research questions were — which
-  is the first genuinely reassuring thing about the change.
+  **10 December**. The new brief does not move either date, but it does mean
+  the core is now a smaller, better-defined target than the three original
+  research questions were — which is the first genuinely reassuring thing about
+  the change.
 
 ### Correction, same day — the dangling conventions are all the same convention
 
