@@ -9,8 +9,9 @@ raw matrix being substochastic.
 
 import numpy as np
 import pytest
+import scipy.sparse as sp
 
-from pagerank.graph import from_edge_list
+from pagerank.graph import DirectedGraph, from_edge_list
 from pagerank.power import pagerank_power
 
 from test_toy_graph import (
@@ -148,3 +149,28 @@ def test_empty_graph_raises() -> None:
     graph = from_edge_list([], 0)
     with pytest.raises(ValueError, match="empty graph"):
         pagerank_power(graph)
+
+
+def test_mass_drift_raises_instead_of_being_normalised_away() -> None:
+    """An inconsistent graph must fail loudly, not return a plausible vector.
+
+    Built by hand so that the degree arrays contradict the matrix: edge 0->1
+    is in ``transpose``, but ``out_degree`` claims node 0 has no out-links, so
+    the solver also counts node 0's mass as dangling and redistributes it a
+    second time. One step from the uniform start then sums to
+    ``1 + alpha * 0.5 = 1.425``. Normalising that away at the end would hide
+    the bug, which is why the check is an explicit raise and not an assert
+    that ``python -O`` would remove.
+    """
+    transpose = sp.csr_matrix(np.array([[0.0, 0.0], [1.0, 0.0]]))
+    inconsistent = DirectedGraph(
+        n=2,
+        transpose=transpose,
+        out_degree=np.array([0, 0], dtype=np.int64),
+        in_degree=np.array([0, 1], dtype=np.int64),
+        n_duplicates_dropped=0,
+        n_self_loops_dropped=0,
+    )
+
+    with pytest.raises(RuntimeError, match="mass drifted to 1.425"):
+        pagerank_power(inconsistent, alpha=0.85, max_iter=1)
