@@ -1,0 +1,5 @@
+peering,ixps,nodes,edges,self_loops_dropped,duplicates_dropped,dangling,dangling_share,asns_dropped
+both,kept,80510,884790,0,0,0,0.0,0
+both,excluded,80510,884790,0,0,0,0.0,0
+none,kept,80510,166906,0,0,494,0.006135883741150168,0
+none,excluded,80510,166906,0,0,494,0.006135883741150168,0
