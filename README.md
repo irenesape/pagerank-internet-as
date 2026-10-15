@@ -16,6 +16,16 @@ global reachability. PageRank is a natural lens on it, and unlike the web graph
 it is small enough to study exactly while still being large enough that
 algorithmic choices matter.
 
+**This is not the web graph.** Its nodes are network operators, not pages, and
+its edges are commercial agreements, not hyperlinks; the web PageRank was
+invented for is content carried *over* this topology, one layer up. The point
+is worth stating because "the Internet" and "the web" are used
+interchangeably in ordinary speech, and the brief asks for a non-web graph. By
+that criterion the AS topology is further from the web graph than the social
+networks the brief offers as examples: a social graph is still an application
+populated by users, whereas this is the routing and commercial substrate
+underneath.
+
 ### Why CAIDA and not a SNAP dataset
 
 The project brief suggests [SNAP](https://snap.stanford.edu/data/) as the source
@@ -53,8 +63,13 @@ is extra work built on top of them.
    suitable for PageRank? Which direction does a link's vote run in, and which
    of those choices are facts from the data rather than modelling decisions?
 2. **Dangling nodes.** Which ASes end up with no out-links under the chosen
-   edge direction, and how should their probability mass be handled? What
-   changes in the ranking between the available conventions?
+   edge direction, how much probability mass do they hold, and what has to be
+   done about the fact that the transition matrix is substochastic without
+   them? Several treatments are in circulation — replace each dangling row
+   with the teleport distribution, replace it with the uniform distribution,
+   or leave the matrix as it is and renormalise the solution. Do they actually
+   disagree? Showing *whether* the choice matters, and why, is part of the
+   answer rather than a preliminary to it.
 3. **Interpretation.** What does a high PageRank *mean* for an AS? Which
    networks does it put on top, and is that consistent with what the topology
    is known to look like — in particular with the 18-ASN transit-free clique
