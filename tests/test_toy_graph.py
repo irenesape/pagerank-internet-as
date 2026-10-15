@@ -449,7 +449,24 @@ def test_power_iteration_matches_the_toy_graph() -> None:
     Wire the call below to your final signature and delete the skip.
     """
     pytest.importorskip("pagerank")
-    pytest.skip("power iteration not implemented yet")
+    from pagerank.graph import from_edge_list
+    from pagerank.power import pagerank_power
+
+    toy = pagerank_power(
+        from_edge_list(TOY_EDGES, TOY_N), alpha=float(ALPHA), tol=1e-13
+    )
+    assert toy.vector.sum() == pytest.approx(1.0, abs=1e-12)
+    for node in range(TOY_N):
+        assert toy.vector[node] == pytest.approx(TOY_PAGERANK[node], abs=1e-10)
+
+    for alpha in (0.5, float(ALPHA), 0.99):
+        cycle = pagerank_power(
+            from_edge_list(CYCLE_EDGES, CYCLE_N), alpha=alpha, tol=1e-13
+        )
+        for node in range(CYCLE_N):
+            assert cycle.vector[node] == pytest.approx(
+                CYCLE_PAGERANK[node], abs=1e-10
+            )
 
 
 def test_dangling_ground_truth_is_internally_consistent() -> None:
@@ -486,4 +503,26 @@ def test_power_iteration_handles_the_dangling_node() -> None:
     Wire the call below to the final signature and delete the skip.
     """
     pytest.importorskip("pagerank")
-    pytest.skip("dangling-node treatment not implemented yet")
+    from pagerank.graph import from_edge_list
+    from pagerank.power import pagerank_power
+
+    result = pagerank_power(
+        from_edge_list(DANGLING_EDGES, DANGLING_N),
+        alpha=float(ALPHA),
+        tol=1e-13,
+    )
+
+    # Mass is conserved even though the raw matrix is substochastic, and the
+    # unreachable node 0 sits at the floor, so it ranks last. These hold
+    # without the hand-derived constant.
+    assert result.vector.sum() == pytest.approx(1.0, abs=1e-12)
+    assert int(result.vector.argmin()) == 0
+
+    # The agreement-with-the-constant check stays skipped until the vector is
+    # derived by hand.
+    if DANGLING_PAGERANK_EXACT is None:
+        pytest.skip("dangling ground truth not derived yet (see TODO above)")
+
+    expected = [float(p) for p in DANGLING_PAGERANK_EXACT]
+    for node in range(DANGLING_N):
+        assert result.vector[node] == pytest.approx(expected[node], abs=1e-10)
