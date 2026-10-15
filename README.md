@@ -16,17 +16,80 @@ global reachability. PageRank is a natural lens on it, and unlike the web graph
 it is small enough to study exactly while still being large enough that
 algorithmic choices matter.
 
+### Why CAIDA and not a SNAP dataset
+
+The project brief suggests [SNAP](https://snap.stanford.edu/data/) as the source
+for a non-web graph. The AS topology was chosen instead, on four grounds:
+
+- **Size.** ~75,000 nodes and ~526,000 relationships: large enough that sparse
+  storage and iteration counts genuinely matter, small enough to solve to high
+  precision on a laptop and to inspect node by node.
+- **Natural direction.** The graph is directed by its economics, not by a
+  convention imposed after the fact. A customer-provider link is asymmetric
+  because money and dependency flow one way, which is the property PageRank
+  needs.
+- **Real dangling nodes.** ASes with no out-links occur in the data rather than
+  having to be constructed, so the dangling-node treatment is exercised by the
+  dataset itself instead of by a synthetic corner case.
+- **An independent expert ranking exists.** CAIDA publishes customer cone sizes
+  for the same snapshot, which gives the interpretation of the top-ranked nodes
+  something external to be checked against. Most SNAP graphs ship no reference
+  ordering at all.
+
+None of this is a dependency of the code. Everything in `src/pagerank/`
+operates on an edge list plus a node-index map, so a SNAP graph can be fed to
+the same solvers by swapping the loader. CAIDA supplies the data; it does not
+shape the implementation.
+
 ## Research questions
 
-1. **Ranking.** Which ASes does PageRank identify as structurally central, and
-   how does that ranking compare with [CAIDA AS Rank](https://asrank.caida.org/),
-   which orders ASes by customer cone size? Where the two disagree, why?
-2. **Convergence.** How many iterations do the power method and Gauss-Seidel
+The first block is the set of requirements the project brief imposes. The second
+is extra work built on top of them.
+
+### Core
+
+1. **Modelling.** How is a dataset of a non-web network — the commercial
+   relationships between autonomous systems — turned into a directed graph
+   suitable for PageRank? Which direction does a link's vote run in, and which
+   of those choices are facts from the data rather than modelling decisions?
+2. **Dangling nodes.** Which ASes end up with no out-links under the chosen
+   edge direction, and how should their probability mass be handled? What
+   changes in the ranking between the available conventions?
+3. **Interpretation.** What does a high PageRank *mean* for an AS? Which
+   networks does it put on top, and is that consistent with what the topology
+   is known to look like — in particular with the 18-ASN transit-free clique
+   that CAIDA's own inference forces?
+4. **PageRank versus in-degree.** How does the PageRank ordering differ from
+   simply ranking ASes by in-degree, and what explains the disagreements? This
+   is the central question of the project: in-degree is the baseline PageRank
+   has to justify itself against, since any node-importance claim that
+   in-degree already captures is not worth an eigenvector computation.
+
+### Extensions
+
+Above the brief, and explicitly cuttable. The rubric notes that complexity is
+not rewarded for its own sake — a simple, correct, well-evaluated
+implementation scores better than an elaborate one that is poorly explained —
+so these are only worth doing once the core is finished and written up.
+
+5. **Customer cone comparison.** How does the PageRank ordering compare with
+   [CAIDA AS Rank](https://asrank.caida.org/), which orders ASes by customer
+   cone size? Where the two disagree, why?
+6. **Convergence.** How many iterations do the power method and Gauss-Seidel
    need as a function of the damping factor `alpha`, and does the observed rate
    match the theoretical bound of `alpha` per iteration?
-3. **Local computation.** How much accuracy does the local "push" algorithm for
+7. **Local computation.** How much accuracy does the local "push" algorithm for
    personalised PageRank give up in exchange for touching only a fraction of
    the graph?
+
+**Order of removal if the schedule tightens: 7, then 6, then 5.** Local push
+goes first — it is the largest piece of implementation and the one least
+connected to anything the brief asks for. Convergence goes second; it is
+cheaper, since the iteration counts fall out of the solver the core already
+needs, but it answers a question about the method rather than about the graph.
+The customer cone comparison is the last to go, because it is the only extension
+that feeds back into a core requirement: an independent expert ranking is
+evidence for or against the interpretation in question 3.
 
 ## Scope and constraints
 
@@ -45,6 +108,25 @@ Programming project for **Internet and Networked Economy (INE)**, Master's
 degree in Advanced Telecommunication Technologies (MATT), taught at the ETSETB,
 Universitat Politecnica de Catalunya. Worth 30% of the course grade. Delivered
 as a narrative Jupyter notebook and presented on 10 December 2026.
+
+The work is **Project 3.4: PageRank on a Non-Web Graph** from the closed list of
+fifteen projects published with the course guidelines. The brief sets four
+mandatory requirements:
+
+1. Obtain a dataset of a network that is **not** the web and model it as a
+   directed graph.
+2. Apply an **own implementation** of PageRank, **including the treatment of
+   dangling nodes** — Project 3.2 (*Handling Dangling Nodes*) is folded into
+   3.4 as standard, so this is a requirement and not an optional refinement.
+3. Interpret the top-ranked nodes: explain what a high PageRank means in this
+   particular context.
+4. Compare the resulting ranking against **in-degree** and discuss the
+   differences.
+
+The rubric states that complexity is not rewarded in itself: a simple, correct
+and well-evaluated implementation scores higher than a complex one that is
+badly explained. The research questions above are organised accordingly — the
+four requirements as Core, everything else marked as an Extension.
 
 Author: Irene Sarrias Perez.
 
@@ -67,11 +149,12 @@ and the required citation.
 │   ├── processed/      derived edge lists and index maps (git-ignored)
 │   └── README.md       provenance, terms of use, citation
 ├── notebooks/          narrative analysis, numbered in reading order
-│   ├── 00_toy_graph.ipynb           hand-checkable graph, validates the code
-│   ├── 01_data_preparation.ipynb    parsing, cleaning, sparse construction
-│   ├── 02_ranking_vs_asrank.ipynb   research question 1
-│   ├── 03_convergence.ipynb         research question 2
-│   └── 04_local_push.ipynb          research question 3
+│   ├── 00_toy_graph.ipynb                 hand-checkable graph, validates the code
+│   ├── 01_data_preparation.ipynb          parsing, cleaning, sparse construction
+│   ├── 02_ranking_and_indegree.ipynb      core: questions 1-4
+│   ├── 03_convergence.ipynb               extension: question 6
+│   ├── 04_local_push.ipynb                extension: question 7
+│   └── 05_customer_cone_comparison.ipynb  extension: question 5
 ├── src/pagerank/       reusable, importable implementation
 ├── tests/              pytest suite, ground truth computed by hand
 ├── results/
@@ -129,9 +212,12 @@ place it under `data/raw/`, and run the notebooks in numerical order.
 
 ## Results
 
-_To be completed. This section will summarise the answers to the three research
-questions, with figures from `results/figures/` and the ranking comparison
-table._
+_To be completed. This section will summarise the answers to the four core
+research questions first — the top-ranked ASes and their interpretation, the
+dangling-node treatment, and the PageRank-versus-in-degree comparison — with
+figures from `results/figures/` and the ranking tables from `results/tables/`.
+Any extension that survives the schedule is reported after them, clearly
+separated from the required work._
 
 ## References
 
