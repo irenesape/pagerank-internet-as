@@ -445,8 +445,6 @@ def test_power_iteration_matches_the_toy_graph() -> None:
     * returns a vector summing to 1
     * agrees with TOY_PAGERANK to ~1e-10 when the tolerance is tight
     * reproduces CYCLE_PAGERANK for the 3-cycle at any alpha
-
-    Wire the call below to your final signature and delete the skip.
     """
     pytest.importorskip("pagerank")
     from pagerank.graph import from_edge_list
@@ -499,8 +497,6 @@ def test_power_iteration_handles_the_dangling_node() -> None:
     A disagreement with the constant is therefore not a convention mismatch.
     The likely cause is renormalising inside the iteration instead of
     repairing the matrix, which converges somewhere else entirely.
-
-    Wire the call below to the final signature and delete the skip.
     """
     pytest.importorskip("pagerank")
     from pagerank.graph import from_edge_list

@@ -131,9 +131,14 @@ def pagerank_power(
 
     # Analytically the iterate sums to 1 at every step (that is the point of
     # the dangling repair), so this only removes floating-point drift. If the
-    # sum has drifted meaningfully the update is wrong, so assert first.
+    # sum has drifted meaningfully the update is wrong, so check first. An
+    # explicit raise rather than an assert: asserts are stripped under -O,
+    # and this is an invariant of the library, not a debugging aid.
     total = float(x.sum())
-    assert abs(total - 1.0) < 1e-9, f"iterate mass drifted to {total!r}"
+    if abs(total - 1.0) >= 1e-9:
+        raise RuntimeError(
+            f"iterate mass drifted to {total!r}; the dangling update is wrong"
+        )
     x = x / total
 
     return PageRankResult(
