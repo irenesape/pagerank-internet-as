@@ -35,6 +35,27 @@ than to the mixture of methods that produced it.
 > metadata, and if it remains unclear, ask `topology-info@caida.org` rather than
 > assuming.
 
+### The mandatory baseline is in-degree, not the customer cone
+
+Worth being precise about what depends on the paragraph above, because it has
+changed since it was written. The project brief (3.4) requires the PageRank
+ordering to be compared against **in-degree**, which is computed from the same
+`as-rel` file, over the same directed graph, under the same edge-direction
+conventions, inside this repository. It needs no second dataset, no API and no
+provenance research: if the graph is right, the baseline is right by
+construction.
+
+The customer cone comparison is an optional extension. So the open question of
+which `serial-` variant AS Rank is built on affects only that extension, and
+cannot block or invalidate a required result. If it stays unresolved, the cone
+comparison is caveated or dropped and the brief is still satisfied in full.
+
+The practical consequence for this directory: `20260901.as-rel.bz2` is
+load-bearing and `20260901.ppdc-ases.bz2` is not. Both ship with the same
+snapshot, which is still the reason to prefer the cone file over the live AS
+Rank service — it is pinned to the graph being ranked instead of updating on
+CAIDA's own schedule.
+
 Record the exact snapshot date used in `LAB_NOTEBOOK.md`. The graph changes
 month to month, so a result is only reproducible if the snapshot is pinned.
 
