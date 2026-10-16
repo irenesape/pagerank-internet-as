@@ -409,6 +409,31 @@ def _md5_of_file(path: str | os.PathLike, chunk: int = 1 << 20) -> str:
     return digest.hexdigest()
 
 
+def _repo_root() -> str:
+    """The repository root, taken as the parent of the ``src/`` directory.
+
+    This module lives at ``src/pagerank/caida.py``, so the root is three levels
+    up. Used only to turn an absolute snapshot path into a repository-relative
+    one for the sidecar.
+    """
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def _portable_snapshot_path(path: str) -> str:
+    """Return a path safe to write into a sidecar: no machine-specific prefix.
+
+    A path under the repository root is stored relative to it
+    (``data/raw/20260901.as-rel.bz2``); anything else is reduced to its
+    basename. The rule is that nothing the project writes carries an absolute
+    local path, even into untracked files.
+    """
+    absolute = os.path.abspath(path)
+    root = _repo_root()
+    if absolute == root or absolute.startswith(root + os.sep):
+        return os.path.relpath(absolute, root)
+    return os.path.basename(path)
+
+
 def save_build(build: EdgeListBuild, path: str | os.PathLike) -> None:
     """Write a build to ``path`` as an ``.npz`` plus a ``.json`` sidecar.
 
@@ -426,6 +451,8 @@ def save_build(build: EdgeListBuild, path: str | os.PathLike) -> None:
     # savez_compressed appends .npz if absent; mirror that for the sidecar.
     npz_name = name if name.endswith(".npz") else name + ".npz"
 
+    # Compute the md5 from the original (possibly absolute) path, which is where
+    # the file actually is, *before* reducing the path to a portable form.
     try:
         snapshot_md5 = _md5_of_file(build.snapshot_path)
     except OSError:
@@ -441,7 +468,7 @@ def save_build(build: EdgeListBuild, path: str | os.PathLike) -> None:
         "n_p2p_used": build.n_p2p_used,
         "n_relationships_excluded": build.n_relationships_excluded,
         "n_asns_dropped": build.n_asns_dropped,
-        "snapshot_path": build.snapshot_path,
+        "snapshot_path": _portable_snapshot_path(build.snapshot_path),
         "snapshot_md5": snapshot_md5,
     }
     with open(npz_name + ".json", "w", encoding="ascii") as handle:
