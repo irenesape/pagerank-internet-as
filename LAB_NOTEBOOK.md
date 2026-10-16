@@ -984,3 +984,127 @@ and the cleanest illustration of why the dangling treatment matters. The
 notebook prose and its section-9 bullet were corrected and a code cell now
 prints the three numbers (18 of 18 clique members dangling, 494 with a peering
 link, 494 customers of nobody) so the claim is backed by output.
+
+---
+
+## 2026-10-16 — Core ranking and the in-degree comparison
+
+Ran the from-scratch PageRank solver on the provisional primary AS graph and
+set the result against in-degree, the baseline the brief requires. This is the
+centre of the deliverable (requirements 2, 3 and 4), so the emphasis was on
+getting the comparison numbers right and on explaining the disagreements with
+structural facts rather than assertions.
+
+### Decisions
+
+- **Four comparison helpers built on the existing deterministic ranking.**
+  `rank_positions` (the 1-based rank of every node, the inverse of the
+  ordering), `top_k_overlap`, `kendall_tau` and `largest_rank_shifts`. They
+  all reuse the ascending-index tie-break already in `ranking`, so every
+  number in the comparison is reproducible across runs; a tie-break that
+  depended on the sort backend would make the disagreement tables change
+  between runs for no reason.
+- **Kendall's tau comes from `scipy.stats`, deliberately.** The "from scratch"
+  claim in the project is about the PageRank solver, not about standard
+  statistics, and tau-b is a standard statistic with a correct,
+  tie-aware implementation already in a dependency. Reimplementing it would add
+  risk without adding anything the project is graded on. The tau-b variant
+  (not tau-a or tau-c) is the right one because in-degree is a small integer
+  with many ties, which tau-b corrects for.
+- **The edge array is passed straight into `from_edge_list`.** Added a fast
+  path that takes an `(m, 2)` integer array without the per-pair Python loop,
+  because the real graph has 884,790 edges and the loop version is the only
+  slow step in the notebook. Building the transition matrix now takes about
+  0.3 s. The iterable path is unchanged, so the toy-graph tests still exercise
+  it.
+- **Disagreements are measured over the union of the top 1000 by either
+  measure, not over the whole graph.** Ranked over all 80k nodes, the largest
+  rank shifts all run one way: obscure tail ASes that PageRank lifts a long way
+  on the strength of one good in-link. Restricting to the union of the two top
+  1000s keeps the comparison among networks that matter to at least one
+  measure, which is what requirement 4 is asking about.
+- **The structural claim behind each disagreement is computed before it is
+  written.** For each promoted AS the notebook computes the share of its
+  in-neighbours that sit in the PageRank top 100, so the prose ("PageRank lifts
+  ASes pointed at by few but important networks") is backed by a column in the
+  table rather than asserted.
+
+### What broke
+
+- **Notebook 01 was left executed in place and polluted the working tree.** It
+  showed as modified with 655 added lines that were all output payloads
+  (printed counts, HTML tables, a base64 figure) and no source change, from an
+  accidental in-place run. The output policy is that committed notebooks carry
+  no outputs until the final executed run, so this was reverted to its
+  committed state rather than staged. Symptom: `git status` dirty on a file
+  this work never edited; cause: an in-place execution; fix:
+  `git restore notebooks/01_data_preparation.ipynb` after confirming the diff
+  was outputs only.
+
+### Verified
+
+- `.venv/bin/python -m pytest -q`: **78 passed, 2 skipped**. The two skips are
+  the same `dangling ground truth not derived yet` as before. New: 11 metrics
+  tests (`rank_positions` with a tie, overlap at 2/3, tau = 1/-1 and a
+  hand-checked 1/3 permutation, a subset tau, the big-mover shift) and 2 graph
+  tests (array input equals the list-of-tuples build; an `(m, 3)` array
+  raises).
+- PageRank on the primary graph (80,510 nodes, 884,790 edges, alpha 0.85,
+  tol 1e-12): converges in **88 iterations**, `converged=True`, final residual
+  9.81e-13, vector sums to 1 to 1e-15. `from_edge_list` on the edge array:
+  about 0.32 s. Whole notebook executes with Run All in about 2 s of
+  computation (4 s wall under `nbconvert`), far under the 3-minute budget.
+- Top of the ranking: AS6939 first, then AS24482, AS3356, AS174 -- large
+  transit providers and the busiest peering hub. Top 20 in
+  `results/tables/02_top20_pagerank.csv`.
+- PageRank versus in-degree: top-k overlap **0.90 / 0.88 / 0.86** at
+  10 / 50 / 100; tau-b over all nodes **0.977**; tau-b over the top-1000 union
+  **0.735**. So the two agree at the top and over the whole graph but part
+  company in the middle band, which is where *who* points at a node starts to
+  outweigh *how many*. Summary in
+  `results/tables/02_pagerank_vs_indegree_summary.csv`, scatter in
+  `results/figures/02_pagerank_vs_indegree.png`, distribution in
+  `results/figures/02_pagerank_distribution.png`.
+- Disagreement structure, confirmed numerically: the ASes PageRank promotes
+  have modest in-degree (median about 17) with in-links from heavier networks;
+  the ASes in-degree promotes have far larger in-degree (median in the
+  hundreds) from many peripheral networks. Both directions, ten rows each, in
+  `results/tables/02_disagreements.csv`.
+- Dangling treatment: **0 dangling** on the primary graph, so it is correct
+  (notebook 00) and inactive here. Under peering `none` it is active: 494
+  dangling nodes hold **0.2252** of the total PageRank mass, redistributed
+  through the teleport term (38 iterations). Sensitivity in
+  `results/tables/02_sensitivity_peering_none.csv`.
+- Vote reversed (`provider_to_customer`, peering both): tau-b against the
+  primary **0.507**, a largely different top 10. The vote direction is a
+  consequential modelling choice, quantified in
+  `results/tables/02_sensitivity_vote_reversed.csv`.
+
+### Open items
+
+- **Four of the eighteen clique members fall outside the PageRank top 100**
+  (AS209 at 147, AS2828 at 231, AS5511 at 107, AS6830 at 145), though all stay
+  inside the top ~230 of 80,510. This is a finding to explain in the
+  interpretation, not a bug: clique membership forces transit-freedom (no
+  customers, no providers, only peers), so a clique AS that peers with
+  relatively few networks collects less endorsement than a large transit
+  provider below it in the hierarchy but above it in raw connectivity. The
+  sanity check (14 of 18 in the top 100, the rest just below) passes; recorded
+  so the write-up addresses it directly.
+- **The interpretation of the top-ranked nodes (requirement 3) is left as a
+  marked factual draft** in notebook 02, section 10, beginning with the line
+  that says the submitted interpretation is the author's. The draft is facts
+  only; the reasoning about what a high PageRank *means* for an AS is the
+  graded part and stays with the author.
+- Peering direction and vote direction remain the two open modelling decisions
+  (core question 1). Both are now reported as sensitivities against the primary
+  with numbers attached; neither is picked here.
+- `DANGLING_PAGERANK_EXACT` is still underived by hand and still `None`; the two
+  solver tests consuming it stay skipped. Unchanged; this is the graded hand
+  derivation.
+- The dangling census question ("how much mass do the dangling nodes hold") is
+  now answered for both variants: 0 on the primary, 0.2252 under peering
+  `none`. Resolves that item from the data-preparation entry.
+- Next: the extensions, in the order they are cut if the schedule tightens
+  (customer cone last, then convergence, then local push). The convergence
+  study already has its first datum: 88 power-iteration steps at alpha 0.85.
