@@ -311,11 +311,19 @@ def test_save_load_round_trips_exactly(plain_file: Path) -> None:
     assert loaded.n_p2p_used == build.n_p2p_used
     assert loaded.n_relationships_excluded == build.n_relationships_excluded
     assert loaded.n_asns_dropped == build.n_asns_dropped
-    assert loaded.snapshot_path == build.snapshot_path
+    # The fixture snapshot lives in tmp_path, outside the repository, so its
+    # path is reduced to a basename on save and that is what loads back.
+    assert loaded.snapshot_path == plain_file.name
 
 
 def test_save_writes_the_snapshot_md5_into_the_sidecar(plain_file: Path) -> None:
-    """The sidecar records the md5 of the raw snapshot for provenance."""
+    """The sidecar records the md5 of the raw snapshot, and no machine path.
+
+    The md5 is computed from the file as it actually sits on disk (an absolute
+    path here), but the ``snapshot_path`` written into the sidecar must carry no
+    absolute local path: a tmp_path file outside the repository is reduced to
+    its basename.
+    """
     import hashlib
     import json
 
@@ -327,3 +335,20 @@ def test_save_writes_the_snapshot_md5_into_the_sidecar(plain_file: Path) -> None
     sidecar = json.loads((plain_file.parent / "build2.npz.json").read_text())
     expected = hashlib.md5(plain_file.read_bytes()).hexdigest()
     assert sidecar["snapshot_md5"] == expected
+    assert sidecar["snapshot_path"] == plain_file.name
+    # No value anywhere in the sidecar may be an absolute local path.
+    for value in sidecar.values():
+        if isinstance(value, str):
+            assert not value.startswith("/"), value
+
+
+def test_portable_snapshot_path_relativises_paths_under_the_repo() -> None:
+    """A path under the repo is stored relative; anything else is a basename."""
+    from pagerank.caida import _portable_snapshot_path, _repo_root
+
+    root = _repo_root()
+    under_repo = str(Path(root) / "data" / "raw" / "20260901.as-rel.bz2")
+    assert _portable_snapshot_path(under_repo) == "data/raw/20260901.as-rel.bz2"
+
+    outside = "/somewhere/else/20260901.as-rel.bz2"
+    assert _portable_snapshot_path(outside) == "20260901.as-rel.bz2"
