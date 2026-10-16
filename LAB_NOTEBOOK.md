@@ -964,3 +964,23 @@ measured.
   neither is picked. The ranking notebook reports the ranking under each.
 - Next: the core ranking on the provisional primary variant and the in-degree
   comparison.
+
+**Correction, 2026-10-16.** The dangling census above described the 494
+dangling nodes under peering `none` the wrong way round. I wrote that the
+input clique was *not* among them -- that clique members keep customer-provider
+edges "pointing away from them" -- and that the dangling set was some broader
+pool of peering-only ASes. That has the vote direction backwards. With votes
+running customer -> provider, an edge points away from the customer and into
+the provider, so it is a *customer* that has an out-edge, not a provider. A
+transit-free AS has no provider, hence no customer-provider out-edge, so once
+peering is dropped it has no out-edge at all and dangles. Verified on the saved
+`peering-none` build: the 494 dangling nodes are exactly the provider-free ASes
+(none is a customer in any `-1` row), every one of them has at least one
+peering link, and **all 18 input-clique members are among them**. The finding
+is the opposite of what I wrote and stronger for it: dropping peering makes
+precisely the most important ASes -- the top of the hierarchy -- leak their
+mass, which is the clearest argument for peering `both` as the primary model
+and the cleanest illustration of why the dangling treatment matters. The
+notebook prose and its section-9 bullet were corrected and a code cell now
+prints the three numbers (18 of 18 clique members dangling, 494 with a peering
+link, 494 customers of nobody) so the claim is backed by output.
