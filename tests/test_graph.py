@@ -153,3 +153,31 @@ def test_empty_graph_is_all_dangling() -> None:
     assert graph.in_degree.tolist() == [0, 0, 0]
     assert graph.dangling.tolist() == [True, True, True]
     assert graph.transpose.nnz == 0
+
+
+def test_array_input_matches_the_list_of_tuples() -> None:
+    """An (m, 2) array builds the same graph as the equivalent list of pairs.
+
+    The array form is the fast path used for the real 884k-edge graph; it must
+    produce a DirectedGraph identical in every field to the Python-level
+    intake, so switching to it changes nothing about the result.
+    """
+    from_list = from_edge_list(TOY_EDGES, TOY_N)
+    from_array = from_edge_list(np.array(TOY_EDGES, dtype=np.int64), TOY_N)
+
+    assert from_array.n == from_list.n
+    assert from_array.out_degree.tolist() == from_list.out_degree.tolist()
+    assert from_array.in_degree.tolist() == from_list.in_degree.tolist()
+    assert from_array.n_self_loops_dropped == from_list.n_self_loops_dropped
+    assert from_array.n_duplicates_dropped == from_list.n_duplicates_dropped
+    # Same sparse transpose, entry for entry.
+    assert np.array_equal(
+        from_array.transpose.toarray(), from_list.transpose.toarray()
+    )
+
+
+def test_array_input_with_the_wrong_width_raises() -> None:
+    """An array that is not (m, 2) -- e.g. (m, 3) -- is a ValueError."""
+    bad = np.array([[0, 1, 2], [1, 2, 3]], dtype=np.int64)
+    with pytest.raises(ValueError, match=r"shape \(m, 2\)"):
+        from_edge_list(bad, 4)
