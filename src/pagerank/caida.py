@@ -185,6 +185,153 @@ def read_as_rel(path: str | os.PathLike) -> AsRelSnapshot:
 
 
 # --------------------------------------------------------------------------
+# Customer cones: the CAIDA ppdc-ases file.
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CustomerCones:
+    """Per-AS customer-cone sizes read from a CAIDA ``ppdc-ases`` file.
+
+    The ``ppdc-ases`` file ships with the same snapshot as the ``as-rel`` file
+    and lists, one line per AS, the AS followed by every AS in its
+    provider-peer-customer cone -- the set reachable by following
+    provider-to-customer links downwards (see the ``serial-1`` README and
+    Luckie et al., IMC 2013). It is CAIDA's own "how big is this AS" ordering,
+    independent of anything this project computes, so it serves as an external
+    reference for the ranking.
+
+    Only the cone *size* per AS is kept: the member lists run to tens of
+    thousands of ASNs for the clique and are not needed downstream, so they are
+    counted per line and discarded during the parse.
+
+    ``cone_size`` counts the distinct ASNs on a line including the leading AS
+    itself. On the shipped snapshots every line lists its own AS among the
+    members (``self_listed_share == 1.0``), but defining the size over the
+    distinct set makes it independent of that convention: an AS with no
+    customers has cone size 1 (itself) either way.
+
+    Attributes:
+        path: The path the cones were read from.
+        clique: ASNs on the ``# inferred clique:`` header line, in file order.
+            Empty when the header leaves it blank (as on this snapshot).
+        total_size: The value on the ``# total size:`` header line, i.e. the
+            number of ASes the file claims to cover.
+        asns: ``(m,)`` int64, the ASNs with a cone, sorted ascending. Index
+            ``i`` is ASN ``asns[i]``.
+        cone_size: ``(m,)`` int64 aligned with ``asns``; distinct ASNs on each
+            AS's line including the AS itself.
+        n_comment_lines: Count of lines beginning with ``#``.
+        self_listed_share: Share of data lines whose leading ASN also appears
+            among its listed members.
+    """
+
+    path: str
+    clique: tuple[int, ...]
+    total_size: int
+    asns: np.ndarray
+    cone_size: np.ndarray
+    n_comment_lines: int
+    self_listed_share: float
+
+
+def read_ppdc_ases(path: str | os.PathLike) -> CustomerCones:
+    """Parse a CAIDA ``ppdc-ases`` file into per-AS cone sizes.
+
+    Reads the provider-peer-customer cone file (bz2 when the suffix is
+    ``.bz2``, plain text otherwise). The header carries two comment lines,
+    ``# inferred clique:`` (optionally followed by the clique ASNs; blank on
+    this snapshot) and ``# total size:``. Each remaining line is an AS followed
+    by the ASNs in its cone, space separated.
+
+    The cone size stored is the number of *distinct* ASNs on the line including
+    the leading AS, so that an AS with no customers has size 1 regardless of
+    whether the file repeats the leading AS in the member list. The share of
+    lines that do repeat it is reported in ``self_listed_share`` so the
+    convention on a given file is measurable rather than assumed.
+
+    Member lists are counted and discarded per line; they are never all held in
+    memory at once. ``str.split`` on each line is adequate (a few seconds on the
+    80k-line snapshot even though the clique lines carry tens of thousands of
+    members).
+
+    Args:
+        path: Path to the ``ppdc-ases`` file.
+
+    Returns:
+        The parsed :class:`CustomerCones`. ``asns`` is sorted ascending and
+        ``cone_size`` is aligned with it.
+
+    Raises:
+        ValueError: On a line with a non-integer token. The message names the
+            1-based line number.
+    """
+    clique: tuple[int, ...] = ()
+    total_size = 0
+    n_comment_lines = 0
+    n_self_listed = 0
+
+    asn_list: list[int] = []
+    size_list: list[int] = []
+
+    with _open_text(path) as handle:
+        for k, raw in enumerate(handle, start=1):
+            line = raw.rstrip("\n")
+
+            if line.startswith("#"):
+                n_comment_lines += 1
+                if line.startswith("# inferred clique:"):
+                    body = line[len("# inferred clique:"):].strip()
+                    if body:
+                        clique = tuple(int(t) for t in body.split())
+                elif line.startswith("# total size:"):
+                    total_size = int(line[len("# total size:"):].strip())
+                continue
+
+            if not line.strip():
+                continue
+
+            try:
+                tokens = [int(t) for t in line.split()]
+            except ValueError:
+                raise ValueError(
+                    f"line {k}: malformed cone line, non-integer token in "
+                    f"{line!r}"
+                ) from None
+
+            lead = tokens[0]
+            members = tokens[1:]
+            # Distinct ASNs on the line, including the leading AS. Using a set
+            # absorbs both the self-listing and any duplicate member, so the
+            # size is "distinct ASNs in the cone" under either convention.
+            distinct = set(tokens)
+            asn_list.append(lead)
+            size_list.append(len(distinct))
+            if lead in members:
+                n_self_listed += 1
+
+    asns = np.array(asn_list, dtype=np.int64)
+    cone_size = np.array(size_list, dtype=np.int64)
+    # Sort by ASN so the array is a sorted index like EdgeListBuild.asns.
+    order = np.argsort(asns, kind="stable")
+    asns = asns[order]
+    cone_size = cone_size[order]
+
+    n_lines = len(asn_list)
+    self_listed_share = (n_self_listed / n_lines) if n_lines else 0.0
+
+    return CustomerCones(
+        path=os.fspath(path),
+        clique=clique,
+        total_size=total_size,
+        asns=asns,
+        cone_size=cone_size,
+        n_comment_lines=n_comment_lines,
+        self_listed_share=self_listed_share,
+    )
+
+
+# --------------------------------------------------------------------------
 # From snapshot to edge list: this is where the modelling choices live.
 # --------------------------------------------------------------------------
 
