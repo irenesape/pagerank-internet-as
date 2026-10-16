@@ -1157,3 +1157,93 @@ The notebook's section 6 (the three columns replace `in_nbr_top100_share`),
 section 10 (the interpretation draft) and section 1 (the peering-edge share is
 now printed and stated) were corrected to say this, and `02_disagreements.csv`
 was regenerated with the three new columns.
+
+----
+
+## 2026-10-16 — Customer-cone comparison
+
+Compared the ranking against CAIDA's own customer cone, the measure the
+Internet-measurement community uses for "how big is this AS": the set reachable
+from an AS by following provider-to-customer links downwards. CAIDA ships it in
+the `ppdc-ases` file of the same snapshot, so it is an independent expert
+ordering of the same graph on the same day, and it answers the question the
+core ranking left open — whether peering `both` or peering `none` orders the
+networks more like the transit hierarchy. This is an extension beyond the four
+required pieces, the last to be cut if the schedule tightens, and the notebook
+says so in its first paragraph.
+
+### Decisions
+
+- **Cone size is the number of distinct ASNs on a line including the leading AS
+  itself.** The `serial-1` README lists each line as `<cone-as> <customer-1>
+  … <customer-N>`, and the question the README leaves open is whether the
+  leading AS is repeated among the members. Rather than assume, the reader
+  measures it (`self_listed_share`) and defines size over the distinct set, so
+  an AS with no customers has cone size 1 either way. On this snapshot every
+  line repeats its own AS (share 1.0), so size is "customers + 1"; defining it
+  over the distinct set keeps the code correct if a future snapshot changes the
+  convention.
+- **The clique is taken from the `as-rel` header, not the cone file.** The cone
+  file's `# inferred clique:` line is blank on this snapshot, so it names no
+  clique; using the 18-AS clique from the relationship header keeps the clique
+  flag consistent with notebook 02 and lets the comparison mark the same nodes.
+- **ASes present in the relationship file but absent from the cone file are
+  given cone size 1.** A missing line means no inferred customers, which is the
+  same state as a line with no members, so size 1 is the consistent value. On
+  this snapshot the two ASN sets are identical, so the rule is never exercised,
+  but it makes the alignment well-defined.
+- **Agreement with the cone is measured by tau-b over the union of the top 1000
+  by cone and by each measure, not over all nodes.** More than half the graph
+  has cone size 1 (a tie), and an all-node tau-b is dominated by that tied
+  tail; restricting to the top-1000 union compares the networks at least one
+  measure calls large, which is the comparison of interest. Top-k overlap at
+  10/50/100 is reported alongside as the order-free view.
+
+### What broke
+
+Nothing. The notebook executed top to bottom on the first run under
+`nbconvert`, the reconciliation assertion (line count equals the header total)
+held, and the two ASN sets matched exactly, so the size-1 fallback for missing
+cones was never triggered.
+
+### Verified
+
+- `.venv/bin/python -m pytest -q`: **85 passed, 2 skipped**. The two skips are
+  the unchanged `dangling ground truth not derived yet`. The new tests are the
+  cone-reader section of `tests/test_caida.py`: header parse with a blank
+  clique line, distinct-size counting with a self-listed AS and a duplicate
+  member, the self-listed share, ascending-ASN sort, bz2 equals plain text, a
+  non-empty clique line, and a malformed line raising `ValueError` with its
+  line number.
+- Cone file reconciles: **80,510 lines, header `# total size: 80510`** (equal,
+  asserted), `self_listed_share` **1.000**, two comment lines, largest cone
+  **56,628** ASes. The two ASN sets agree exactly: **0** ASNs only in the cone
+  file, **0** only in the relationship file.
+- Clique sits at the top of the cone, as expected of a transit-free core:
+  **9 of the cone top 10** and **12 of the cone top 20** are clique members.
+- Ranking agreement with the cone (`tau_b_top1000_union`; overlap at
+  10/50/100): **peering `none` 0.625** (0.90 / 0.74 / 0.78), **peering `both`
+  0.095** (0.30 / 0.36 / 0.41), **in-degree 0.043** (0.30 / 0.26 / 0.28).
+  Peering `none` is far closer to the cone on every figure. The mechanism is
+  the one notebook 02 found: peering `both` lifts heavily peered networks the
+  cone does not count (it follows only provider-to-customer links), so
+  stripping peering reorders the top towards the transit hierarchy the cone
+  measures. The number is reported; the peering decision stays with the author.
+- Peering-none PageRank converged in **38 iterations**. Whole notebook executes
+  in about **1.6 s** of computation (3.6 s wall under `nbconvert`), under the
+  3-minute budget. Tables `05_cone_vs_rankings_summary.csv`,
+  `05_top20_customer_cone.csv`, `05_cone_disagreements.csv` and figure
+  `05_cone_vs_pagerank.png` written to `results/`.
+
+### Open items
+
+- The extension list from the core-ranking entry is now reduced by one: the
+  customer-cone comparison is done. Convergence and local push remain, in that
+  order of priority.
+- The customer cone gives the peering choice an **external** reference, not
+  just the internal in-degree sensitivity: peering `none` orders the networks
+  far more like the cone than peering `both` does. This is evidence for the
+  modelling write-up; the choice between the two is still the author's and is
+  not taken here.
+- `DANGLING_PAGERANK_EXACT` is still underived by hand and still `None`; the two
+  solver tests consuming it stay skipped. Unchanged.
