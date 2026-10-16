@@ -352,3 +352,127 @@ def test_portable_snapshot_path_relativises_paths_under_the_repo() -> None:
 
     outside = "/somewhere/else/20260901.as-rel.bz2"
     assert _portable_snapshot_path(outside) == "20260901.as-rel.bz2"
+
+
+# --------------------------------------------------------------------------
+# Customer cones (ppdc-ases)
+#
+# A synthetic cone file mirroring the real one's shape: two header comment
+# lines (an empty inferred-clique line and a total-size line), then three ASes.
+# AS 10 lists itself among its members and has a duplicate member (20 twice),
+# so its distinct cone is {10, 20, 30} -> size 3. AS 20 lists itself and one
+# customer -> {20, 30} -> size 2. AS 30 does NOT list itself and has no
+# customers, so the line is just "30" -> {30} -> size 1. Two of the three lines
+# self-list, so the share is 2/3.
+# --------------------------------------------------------------------------
+
+CONES = """\
+# inferred clique:
+# total size: 3
+10 10 20 20 30
+20 20 30
+30
+"""
+
+
+@pytest.fixture()
+def cone_plain_file(tmp_path: Path) -> Path:
+    """Write the synthetic cone file as plain text and return its path."""
+    path = tmp_path / "toy.ppdc-ases.txt"
+    path.write_text(CONES, encoding="ascii")
+    return path
+
+
+@pytest.fixture()
+def cone_bz2_file(tmp_path: Path) -> Path:
+    """Write the same cone bytes bz2-compressed, so the suffix selects the opener."""
+    path = tmp_path / "toy.ppdc-ases.bz2"
+    with bz2.open(path, "wt", encoding="ascii") as handle:
+        handle.write(CONES)
+    return path
+
+
+def test_cone_reader_parses_the_header(cone_plain_file: Path) -> None:
+    """Empty inferred-clique line gives an empty tuple; total size is read."""
+    from pagerank.caida import CustomerCones, read_ppdc_ases
+
+    cones = read_ppdc_ases(cone_plain_file)
+    assert isinstance(cones, CustomerCones)
+    assert cones.clique == ()
+    assert cones.total_size == 3
+    assert cones.n_comment_lines == 2
+
+
+def test_cone_reader_sizes_count_distinct_asns_including_self(
+    cone_plain_file: Path,
+) -> None:
+    """Cone size is the distinct ASNs on the line including the leading AS.
+
+    AS 10: {10, 20, 30} -> 3 (the duplicate 20 is absorbed).
+    AS 20: {20, 30}     -> 2.
+    AS 30: {30}         -> 1 (no customers, not self-listed, still size 1).
+    """
+    from pagerank.caida import read_ppdc_ases
+
+    cones = read_ppdc_ases(cone_plain_file)
+    assert np.array_equal(cones.asns, np.array([10, 20, 30], dtype=np.int64))
+    assert np.array_equal(cones.cone_size, np.array([3, 2, 1], dtype=np.int64))
+
+
+def test_cone_reader_measures_the_self_listed_share(cone_plain_file: Path) -> None:
+    """Two of the three lines repeat their leading AS among the members."""
+    from pagerank.caida import read_ppdc_ases
+
+    cones = read_ppdc_ases(cone_plain_file)
+    assert cones.self_listed_share == pytest.approx(2 / 3)
+
+
+def test_cone_reader_returns_asns_sorted_ascending(tmp_path: Path) -> None:
+    """ASNs come back sorted even when the file lists them out of order."""
+    from pagerank.caida import read_ppdc_ases
+
+    text = "# inferred clique:\n# total size: 3\n30 30\n10 10 20\n20 20\n"
+    path = tmp_path / "unsorted.ppdc-ases.txt"
+    path.write_text(text, encoding="ascii")
+    cones = read_ppdc_ases(path)
+    assert np.array_equal(cones.asns, np.array([10, 20, 30], dtype=np.int64))
+    # Aligned: 10 -> {10,20} = 2, 20 -> {20} = 1, 30 -> {30} = 1.
+    assert np.array_equal(cones.cone_size, np.array([2, 1, 1], dtype=np.int64))
+
+
+def test_cone_reader_bz2_and_plain_text_agree(
+    cone_plain_file: Path, cone_bz2_file: Path
+) -> None:
+    """The suffix must be the only difference between the two reads."""
+    from pagerank.caida import read_ppdc_ases
+
+    plain = read_ppdc_ases(cone_plain_file)
+    compressed = read_ppdc_ases(cone_bz2_file)
+    assert plain.clique == compressed.clique
+    assert plain.total_size == compressed.total_size
+    assert plain.n_comment_lines == compressed.n_comment_lines
+    assert plain.self_listed_share == compressed.self_listed_share
+    assert np.array_equal(plain.asns, compressed.asns)
+    assert np.array_equal(plain.cone_size, compressed.cone_size)
+
+
+def test_cone_reader_reads_a_non_empty_clique_line(tmp_path: Path) -> None:
+    """When the header lists clique ASNs after the colon, they are captured."""
+    from pagerank.caida import read_ppdc_ases
+
+    text = "# inferred clique: 3356 174\n# total size: 1\n10 10\n"
+    path = tmp_path / "clique.ppdc-ases.txt"
+    path.write_text(text, encoding="ascii")
+    cones = read_ppdc_ases(path)
+    assert cones.clique == (3356, 174)
+
+
+def test_cone_reader_rejects_a_non_integer_token(tmp_path: Path) -> None:
+    """A malformed data line raises ValueError naming the 1-based line number."""
+    from pagerank.caida import read_ppdc_ases
+
+    text = "# inferred clique:\n# total size: 1\n10 20 x\n"
+    path = tmp_path / "bad.ppdc-ases.txt"
+    path.write_text(text, encoding="ascii")
+    with pytest.raises(ValueError, match=r"line 3:.*malformed"):
+        read_ppdc_ases(path)
