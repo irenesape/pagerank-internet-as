@@ -1,0 +1,6 @@
+metric,value
+overlap@10,0.9
+overlap@50,0.88
+overlap@100,0.86
+tau_b_all,0.976838235253289
+tau_b_top1000_union,0.7350396037559692

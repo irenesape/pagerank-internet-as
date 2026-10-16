@@ -1,0 +1,8 @@
+metric,value
+iterations,38.0
+dangling_nodes,494.0
+dangling_pagerank_mass,0.2251562539942717
+overlap@10,0.3
+overlap@50,0.34
+overlap@100,0.38
+tau_b_all,0.6379865534386745
