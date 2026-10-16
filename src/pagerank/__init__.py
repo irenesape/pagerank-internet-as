@@ -15,7 +15,8 @@ ranking helpers (:func:`ranking`, :func:`top_k`, :func:`rank_positions`,
 reading and modelling
 the CAIDA AS-relationship snapshots (:func:`read_as_rel`,
 :func:`build_edge_list`, :func:`save_build`, :func:`load_build`) and the CAIDA
-customer-cone sizes (:func:`read_ppdc_ases`).
+customer-cone sizes, both as shipped (:func:`read_ppdc_ases`) and recomputed
+from the relationships (:func:`customer_cone_sizes`).
 """
 
 from pagerank.caida import (
@@ -25,6 +26,7 @@ from pagerank.caida import (
     CustomerCones,
     EdgeListBuild,
     build_edge_list,
+    customer_cone_sizes,
     index_of,
     load_build,
     read_as_rel,
@@ -66,4 +68,5 @@ __all__: list[str] = [
     "load_build",
     "CustomerCones",
     "read_ppdc_ases",
+    "customer_cone_sizes",
 ]
