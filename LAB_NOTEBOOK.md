@@ -851,3 +851,116 @@ clever one.
   matters in practice. Carried forward from the previous entry; unchanged.
 - Next: the CAIDA parser and that census, then the core ranking and the
   in-degree comparison.
+
+---
+
+## 2026-10-15 — Data preparation and the dangling census
+
+Turned the CAIDA snapshot into the directed graph the ranking notebooks will
+use. The reader and the edge-list builder are split deliberately along the
+fact/decision line the brief asks about, the four graph variants are built and
+saved, and the dangling census that earlier entries kept deferring is now
+measured.
+
+### Decisions
+
+- **Reader records facts, builder holds the modelling choices.** `read_as_rel`
+  returns the header plus the raw `(as1, as2, rel)` triples and their step
+  tags, with no edge direction or peering choice applied; `build_edge_list`
+  turns that into node indices and a directed edge list under three explicit
+  parameters (peering `both`/`none`, vote direction, excluded ASNs). The reason
+  is the separation core question 1 rests on: the file states who is provider
+  and who is customer and nothing more, so everything about edge direction is a
+  decision and belongs in a function whose signature names it, not baked into
+  the parse. It also lets the notebook build every variant from one read.
+- **Sorted-ASN indexing, not a dense array over the ASN space.** The snapshot
+  has 80,510 distinct ASNs but a maximum ASN of 402,976, so a dense array
+  indexed by ASN would be about 80% empty. Node index is position in the
+  sorted ASN array, and ASNs map to indices by binary search
+  (`np.searchsorted`), paid once per edge at build time only. This closes the
+  dense-versus-dictionary open item from 18 September with the numbers that
+  decide it.
+- **Rebuilt `.venv` from the lock file rather than patching shebangs.** The
+  console scripts carried the pre-move absolute shebang and failed with
+  `bad interpreter`; recreating from `requirements-lock.txt` is the fix that
+  leaves the recorded versions intact. `pip freeze --exclude-editable` was
+  identical before and after (113 lines), confirming no version moved.
+- **Mass-drift check is a raise, not an assert.** The solver's end-of-run
+  invariant that the iterate sums to 1 is now an explicit `RuntimeError`
+  instead of an `assert`: an assert is stripped under `python -O`, and this is
+  a library invariant whose violation means the dangling update is wrong, which
+  must fail loudly rather than be normalised away.
+- **Build and save all four variants even though IXP exclusion is inert.**
+  Rather than skip the exclusion once it turned out to change nothing (see
+  below), both variants are built and saved so the ranking notebook can state
+  the exclusion was examined and found to make no difference, instead of
+  silently omitting it.
+
+### What broke
+
+- **Excluding the IXP ASes does nothing in this snapshot, and the first draft
+  of the notebook assumed it would.** The design and the September entry
+  treated the 28 IXP ASes as a set to drop that would visibly shrink the graph.
+  It does not: none of the 28 header-declared IXP ASNs appears in any
+  relationship line, so there is nothing to exclude and the kept and excluded
+  variants come out identical with `asns_dropped == 0`. Cause: CAIDA flags IXP
+  route-server ASes in the header but infers no business relationship for them
+  in `serial-1`. The builder was correct; the assumption was wrong. Fix: the
+  notebook now prints how many header IXP ASes actually appear in a
+  relationship (0 of 28) and reports the inertness as a fact about the data,
+  and section 6 explains it rather than implying a difference. This is exactly
+  the fact/decision distinction the brief wants surfaced: whether to exclude
+  IXPs is a decision, but *that it changes nothing here* is a property of the
+  snapshot.
+- **The `# step N` tag needed parsing out of the comment, not counted.** Early
+  on the step was read as "number of step lines seen" rather than the N in
+  `# step N:`. Caught by the fixture test asserting `step == [1, 1, 2, 2, 2]`:
+  a relationship under `# step 2` must carry 2, not 2-lines-seen. Fixed by
+  taking the token before the colon and converting to int; a relationship
+  appearing before any step comment is tagged 0.
+
+### Verified
+
+- `.venv/bin/python -m pytest -q`: **65 passed, 2 skipped**. The two skips are
+  the same `dangling ground truth not derived yet` as before. New: 12 reader
+  tests and 10 builder tests in `tests/test_caida.py`, plus one solver test for
+  the mass-drift raise.
+- Reader reconciles the real snapshot to the documented counts: 175 comment
+  lines, 525,848 relationships (166,906 customer-provider, 358,942
+  peer-to-peer), 18-ASN clique, 28 IXP ASes, 165 source lines, 8 step tags. The
+  notebook asserts each and stops if any differs.
+- ASN space: 80,510 distinct ASNs, maximum ASN 402,976 (density 0.20).
+- Dangling census over the four variants (vote customer-to-provider): with
+  peering `both`, **0 dangling nodes** — every AS has at least one out-edge, so
+  the dangling treatment is a safety net that does nothing on this graph. With
+  peering `none`, **494 dangling nodes** (share 0.0061): the ASes whose only
+  links were peering lose their sole out-direction. No self-loops and no
+  duplicate edges were dropped in any variant. Table in
+  `results/tables/01_graph_variants.csv`.
+- `both`/kept, the provisional primary variant: 80,510 nodes, 884,790 edges.
+  Top ASes by in-degree include AS6939, AS174 and AS3356 (the last two clique
+  members); the degree distribution is heavy-tailed in both directions, saved
+  as `results/figures/01_degree_distribution.png` (55 KB, dpi 150).
+- `notebooks/01_data_preparation.ipynb` executes top to bottom with
+  `nbconvert --execute` in about 5 seconds (reading the file is 0.4 s of it),
+  well under the 3-minute budget; committed with outputs cleared.
+
+### Open items
+
+- The dangling census is now measured, and the practical answer is that under
+  the provisional primary model the treatment changes nothing (0 dangling). It
+  matters only under peering `none`, which is not the provisional primary. This
+  resolves the "how many ASes dangle and how much mass they hold" item carried
+  from the solver entry, for the variants built so far.
+- **IXP exclusion is inert in this snapshot** (0 of 28 appear). The item is not
+  closed — the ranking notebook still has to say so and decide whether the
+  exclusion variant is worth reporting given it is identical — but it is no
+  longer a source of distortion to guard against on this data.
+- `DANGLING_PAGERANK_EXACT` is still underived by hand and still `None`; the two
+  solver tests consuming it stay skipped. Unchanged; this is the graded hand
+  derivation.
+- Peering direction and customer-provider inversion remain the open modelling
+  decisions (core question 1). Both options are implemented and reported here;
+  neither is picked. The ranking notebook reports the ranking under each.
+- Next: the core ranking on the provisional primary variant and the in-degree
+  comparison.
