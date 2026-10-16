@@ -1108,3 +1108,52 @@ structural facts rather than assertions.
 - Next: the extensions, in the order they are cut if the schedule tightens
   (customer cone last, then convergence, then local push). The convergence
   study already has its first datum: 88 power-iteration steps at alpha 0.85.
+
+**Correction, 2026-10-16.** Two claims in this entry and in notebook 02 were
+stated more strongly than the numbers the notebook itself prints support, and
+both are corrected in a follow-up commit.
+
+What was claimed. First, that the top of the ranking is held by "large transit
+providers". Second, that the ASes PageRank promotes over in-degree are "pointed
+at by few but important networks", with the demoted ones pointed at by
+"ordinary" networks -- an importance story, evidenced by a `in_nbr_top100_share`
+column (the share of a node's in-neighbours sitting in the PageRank top 100).
+
+What the numbers show. The `in_nbr_top100_share` column does not even separate
+the two directions the way the prose claimed: its median is 0.27 for the
+promoted rows and 0.37 for the demoted ones, so the demoted ASes have *more*
+top-100 in-neighbours, and two promoted rows have a share of 0. Recomputing
+three quantities over each AS's in-neighbours tells the real story. The mean
+importance of the pointing networks is about the *same* in both directions
+(`nbr_pr_rel`, mean neighbour PageRank over the graph mean: 129 for promoted,
+111 for demoted). What differs, by a factor of about twenty, is the
+contribution each in-link delivers (`contrib_per_link`, the mean of
+`pr[tail] / out_degree[tail]`: 1.9e-5 promoted, 8.9e-7 demoted), and the
+mechanism is the out-degree of the pointer (`nbr_outdeg_median`: 32 promoted,
+1,159 demoted). The ASes in-degree ranks higher collect a hundred-plus in-links
+from peering hubs with a thousand or more out-links each, so every vote is
+diluted a thousandfold; the ASes PageRank promotes get a few links from
+low-out-degree networks, so each link counts for much more. This is the
+`pr[tail] / out_degree[tail]` term of the update rule, not a difference in
+pointer importance -- a better explanation because it is the algorithm, not an
+interpretation laid over it. For the top of the ranking, the top-20 table says
+11 of the 20 have fewer than 100 customers but thousands of peers (AS24482: 59
+customers, 9,779 peers; AS1000: 3 and 5,138; AS32590: 0 and 5,159); the transit
+providers present are the four clique members AS3356, AS174, AS1299 and AS6461,
+which arrive on customers. The accurate statement is that under peering `both`
+the top is dominated by heavily peered networks, with the largest transit
+providers interleaved.
+
+Why it matters for the peering decision. 81.1% of the edges are peering edges
+(2 x 358,942 of 884,790 under peering `both`), so a network's peer count
+largely sets where it lands: many peers lift it through many in-links, while
+the matching large out-degree means each vote it casts is tiny. The ranking
+under peering `both` is therefore as much a measure of peering connectivity as
+of the transit hierarchy, which is the fact the peering modelling choice turns
+on -- and the reason the peering `none` sensitivity, which strips those 81% of
+edges, reorders the top so heavily.
+
+The notebook's section 6 (the three columns replace `in_nbr_top100_share`),
+section 10 (the interpretation draft) and section 1 (the peering-edge share is
+now printed and stated) were corrected to say this, and `02_disagreements.csv`
+was regenerated with the three new columns.
