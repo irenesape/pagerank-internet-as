@@ -60,7 +60,7 @@ class DirectedGraph:
 
 
 def from_edge_list(
-    edges: Iterable[tuple[int, int]],
+    edges: Iterable[tuple[int, int]] | np.ndarray,
     n: int,
     *,
     drop_self_loops: bool = True,
@@ -68,7 +68,10 @@ def from_edge_list(
     """Build a :class:`DirectedGraph` from an edge list and a node count.
 
     Args:
-        edges: Any iterable of ``(tail, head)`` integer pairs, ``tail -> head``.
+        edges: Either any iterable of ``(tail, head)`` integer pairs
+            (``tail -> head``), or an ``(m, 2)`` integer array of such pairs.
+            The array form is a fast path that skips the per-pair Python loop,
+            so the real graph's edge array loads in well under a second.
         n: Number of nodes. Every endpoint must satisfy ``0 <= id < n``.
         drop_self_loops: If true (default), remove edges with ``tail == head``
             and count them in ``n_self_loops_dropped``.
@@ -80,19 +83,32 @@ def from_edge_list(
         silently summed into a larger weight.
 
     Raises:
-        ValueError: If ``n < 0``, or if any endpoint is out of range (the
-            offending pair is named in the message).
+        ValueError: If ``n < 0``, if an array ``edges`` is not shaped
+            ``(m, 2)``, or if any endpoint is out of range (the offending pair
+            is named in the message).
     """
     if n < 0:
         raise ValueError(f"n must be non-negative, got {n}")
 
-    arr = np.fromiter(
-        (coord for pair in edges for coord in pair),
-        dtype=np.int64,
-    )
-    if arr.size % 2 != 0:
-        raise ValueError("edges must be an iterable of (tail, head) pairs")
-    arr = arr.reshape(-1, 2)
+    if isinstance(edges, np.ndarray):
+        # Fast path for the real graph: an (m, 2) array (the builder's
+        # `edges`) is taken as is, skipping the per-pair Python loop that
+        # `np.fromiter` would run. An 884k-edge array loads in well under a
+        # second this way.
+        if edges.ndim != 2 or edges.shape[1] != 2:
+            raise ValueError(
+                "an edge array must have shape (m, 2), got "
+                f"{edges.shape}"
+            )
+        arr = np.asarray(edges, dtype=np.int64)
+    else:
+        arr = np.fromiter(
+            (coord for pair in edges for coord in pair),
+            dtype=np.int64,
+        )
+        if arr.size % 2 != 0:
+            raise ValueError("edges must be an iterable of (tail, head) pairs")
+        arr = arr.reshape(-1, 2)
 
     # Validate ranges before doing any arithmetic, naming the offending pair.
     if arr.size:
