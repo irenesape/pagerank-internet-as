@@ -476,3 +476,39 @@ def test_cone_reader_rejects_a_non_integer_token(tmp_path: Path) -> None:
     path.write_text(text, encoding="ascii")
     with pytest.raises(ValueError, match=r"line 3:.*malformed"):
         read_ppdc_ases(path)
+
+
+# --------------------------------------------------------------------------
+# Customer cones recomputed from the relationship file
+# --------------------------------------------------------------------------
+
+
+def test_customer_cone_sizes_on_the_synthetic_fixture(plain_file: Path) -> None:
+    """Cones by hand on the shared fixture's c2p rows (1->3, 2->3, 9->4).
+
+    AS1 reaches {1, 3}; AS2 reaches {2, 3}; AS3 has no customers, so {3};
+    AS9 reaches {9, 4}. Sizes 2, 2, 1, 2.
+    """
+    from pagerank.caida import customer_cone_sizes
+
+    snap = read_as_rel(plain_file)
+    sizes = customer_cone_sizes(snap, [1, 2, 3, 9])
+    assert np.array_equal(sizes, np.array([2, 2, 1, 2], dtype=np.int64))
+
+
+def test_customer_cone_sizes_counts_shared_customers_once(tmp_path: Path) -> None:
+    """A diamond shares a customer: distinct reachable ASes, not path count.
+
+    Chain ``1|2|-1, 1|3|-1, 2|4|-1, 3|4|-1``: AS1 reaches 2 and 3, both of
+    which reach 4. AS1's cone is {1, 2, 3, 4} = 4, not 5: AS4 is reached by
+    two paths but counted once.
+    """
+    from pagerank.caida import customer_cone_sizes
+
+    text = "# input clique: 1\n1|2|-1\n1|3|-1\n2|4|-1\n3|4|-1\n"
+    path = tmp_path / "chain.as-rel.txt"
+    path.write_text(text, encoding="ascii")
+    snap = read_as_rel(path)
+    sizes = customer_cone_sizes(snap, [1, 2, 3, 4])
+    # AS1 -> {1,2,3,4}=4; AS2 -> {2,4}=2; AS3 -> {3,4}=2; AS4 -> {4}=1.
+    assert np.array_equal(sizes, np.array([4, 2, 2, 1], dtype=np.int64))

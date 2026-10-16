@@ -331,6 +331,78 @@ def read_ppdc_ases(path: str | os.PathLike) -> CustomerCones:
     )
 
 
+def customer_cone_sizes(
+    snapshot: AsRelSnapshot, asns: Iterable[int]
+) -> np.ndarray:
+    """Compute customer-cone sizes directly from the relationship file.
+
+    The customer cone of an AS is the set of ASes reachable from it by
+    following provider-to-customer links downwards (the ``-1`` rows, where
+    ``as1`` is the provider and ``as2`` its customer). Its size is the number
+    of *distinct* ASes in that set including the AS itself, so an AS with no
+    customers has cone size 1.
+
+    This recomputes from the ``as-rel`` snapshot what the shipped ``ppdc-ases``
+    file states, so the two can be cross-checked: CAIDA's inference also folds
+    peer and sibling relationships into the "provider-peer-customer" cone, so
+    the two need not agree exactly, but the direct-customer reachability
+    computed here is a lower bound a consistent file cannot fall below.
+
+    A provider-to-customer adjacency is built once from the ``-1`` rows; each
+    requested ASN is then expanded by breadth-first search. The visited set
+    makes the traversal count every reached AS once and terminates on the
+    cycles that AS relationships can contain.
+
+    Args:
+        snapshot: The parsed relationship snapshot.
+        asns: The ASNs to compute cone sizes for, in the order the result
+            should follow.
+
+    Returns:
+        An int64 array aligned with ``asns``; entry ``i`` is the customer-cone
+        size of ``asns[i]`` (distinct ASes reachable downwards, including
+        itself, minimum 1).
+    """
+    rel = snapshot.relationships
+    c2p = rel[rel[:, 2] == C2P]
+    providers = c2p[:, 0]
+    customers = c2p[:, 1]
+
+    # provider -> list of direct customers, built once. Group by provider via a
+    # sort so the adjacency is a slice per provider rather than a Python dict of
+    # lists rebuilt per edge.
+    order = np.argsort(providers, kind="stable")
+    sorted_prov = providers[order]
+    sorted_cust = customers[order]
+    unique_prov, starts = np.unique(sorted_prov, return_index=True)
+    ends = np.append(starts[1:], sorted_prov.shape[0])
+    adjacency: dict[int, np.ndarray] = {
+        int(p): sorted_cust[s:e]
+        for p, s, e in zip(unique_prov, starts, ends)
+    }
+
+    from collections import deque
+
+    sizes: list[int] = []
+    for asn in asns:
+        root = int(asn)
+        visited = {root}
+        queue = deque([root])
+        while queue:
+            node = queue.popleft()
+            children = adjacency.get(node)
+            if children is None:
+                continue
+            for child in children:
+                c = int(child)
+                if c not in visited:
+                    visited.add(c)
+                    queue.append(c)
+        sizes.append(len(visited))
+
+    return np.array(sizes, dtype=np.int64)
+
+
 # --------------------------------------------------------------------------
 # From snapshot to edge list: this is where the modelling choices live.
 # --------------------------------------------------------------------------
