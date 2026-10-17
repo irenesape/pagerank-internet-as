@@ -1247,3 +1247,28 @@ cones was never triggered.
   not taken here.
 - `DANGLING_PAGERANK_EXACT` is still underived by hand and still `None`; the two
   solver tests consuming it stay skipped. Unchanged.
+
+**Correction, 2026-10-16.** The *What broke: nothing* above was premature: a
+line count equal to the header total is not consistency. By definition a
+customer cone contains every direct customer, so `cone_size - 1 >= customers`
+must hold for every AS, with `customers` taken from the relationship file.
+Checking it finds **19 ASes** where it fails. The starkest is **AS286**, a
+clique member the `ppdc-ases` file gives cone size 1 while the relationships
+record **805 direct customers**; it holds PageRank rank 30, and its lone red
+dot at cone size 1 near the top of the scatter is this inconsistency, not a
+finding about the network. Recomputing cones directly from the relationships
+(breadth-first over provider-to-customer links) and comparing on the union of
+the top 1000 by shipped cone and by PageRank gives 308 of 1,463 exact matches;
+the shipped cone is kept as the reference because it is CAIDA's own number and
+the point of the extension, but it is now reported as carrying inconsistencies
+rather than as reconciling. The first disagreement table was also wrong: 84% of
+ASes (67,681 of 80,510) have cone size 1, so an index-tie-broken cone rank
+spread that block across tens of thousands of arbitrary positions and the
+"largest shifts" in the `pagerank_higher` direction were size-1 ASes that
+merely had high node indices, shifts of 60,000-plus that meant nothing. Using a
+tie-aware cone rank (all size-1 cones share one rank) the table now shows real
+networks, and the headline that actually matters is reported instead: of the
+PageRank top 20 / 100 / 1000, **1 / 5 / 97** have cone size 1, i.e. no inferred
+customers at all. That share of customerless networks high in the PageRank
+ordering is the mechanism behind the low agreement between PageRank `both` and
+the cone.
