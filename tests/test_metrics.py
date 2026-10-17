@@ -11,6 +11,7 @@ from pagerank.metrics import (
     kendall_tau,
     largest_rank_shifts,
     rank_positions,
+    rank_positions_ties,
     ranking,
     top_k,
     top_k_overlap,
@@ -93,6 +94,20 @@ def test_rank_positions_inverts_the_ranking() -> None:
     order = ranking(scores)
     for i, node in enumerate(order):
         assert positions[node] == i + 1
+
+
+def test_rank_positions_ties_share_the_minimum_rank() -> None:
+    """A three-way tie shares the best position the group occupies.
+
+    scores = [0.9, 0.5, 0.5, 0.5, 0.2]. The top node ranks 1; the three 0.5s
+    all tie for the next positions (2, 3, 4) and so all take the minimum, 2;
+    the 0.2 node follows at 5. Contrast with rank_positions, which would spread
+    the tie over 2, 3, 4 by index.
+    """
+    scores = np.array([0.9, 0.5, 0.5, 0.5, 0.2])
+    assert rank_positions_ties(scores).tolist() == [1, 2, 2, 2, 5]
+    # The index-tie-broken version does spread them, for contrast.
+    assert rank_positions(scores).tolist() == [1, 2, 3, 4, 5]
 
 
 def test_top_k_overlap_counts_the_shared_members() -> None:

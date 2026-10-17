@@ -11,7 +11,8 @@ So far this provides graph construction (:class:`DirectedGraph`,
 :func:`from_edge_list`), the power-iteration solver with dangling-node
 treatment (:class:`PageRankResult`, :func:`pagerank_power`), deterministic
 ranking helpers (:func:`ranking`, :func:`top_k`, :func:`rank_positions`,
-:func:`top_k_overlap`, :func:`kendall_tau`, :func:`largest_rank_shifts`), and
+:func:`rank_positions_ties`, :func:`top_k_overlap`, :func:`kendall_tau`,
+:func:`largest_rank_shifts`), and
 reading and modelling
 the CAIDA AS-relationship snapshots (:func:`read_as_rel`,
 :func:`build_edge_list`, :func:`save_build`, :func:`load_build`) and the CAIDA
@@ -38,6 +39,7 @@ from pagerank.metrics import (
     kendall_tau,
     largest_rank_shifts,
     rank_positions,
+    rank_positions_ties,
     ranking,
     top_k,
     top_k_overlap,
@@ -54,6 +56,7 @@ __all__: list[str] = [
     "ranking",
     "top_k",
     "rank_positions",
+    "rank_positions_ties",
     "top_k_overlap",
     "kendall_tau",
     "largest_rank_shifts",

@@ -104,6 +104,33 @@ def rank_positions(scores: np.ndarray) -> np.ndarray:
     return positions
 
 
+def rank_positions_ties(scores: np.ndarray) -> np.ndarray:
+    """Return 1-based ranks where tied scores share the minimum rank.
+
+    Unlike :func:`rank_positions`, which breaks ties by index and so assigns a
+    distinct position to every node, this gives every node with the same score
+    the same rank: the best position that group occupies. It uses
+    ``scipy.stats.rankdata`` with ``method="min"`` on the negated scores (so the
+    highest score ranks 1).
+
+    This is the right rank when a large block of nodes genuinely ties. The
+    customer-cone comparison needs it because most ASes have cone size 1: an
+    index-tie-broken rank would spread those identical cones across tens of
+    thousands of arbitrary positions and manufacture rank "shifts" that are
+    pure index artefacts.
+
+    Args:
+        scores: Score per node, shape ``(n,)``. Higher is better.
+
+    Returns:
+        An int64 array of shape ``(n,)``; entry ``i`` is node ``i``'s 1-based
+        rank with ties sharing the smallest rank in their group.
+    """
+    scores = np.asarray(scores, dtype=np.float64)
+    ranks = scipy.stats.rankdata(-scores, method="min")
+    return ranks.astype(np.int64)
+
+
 def top_k_overlap(a: np.ndarray, b: np.ndarray, k: int) -> float:
     """Fraction of the top ``k`` shared by two score vectors.
 
