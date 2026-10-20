@@ -13,8 +13,10 @@ treatment (:class:`PageRankResult`, :func:`pagerank_power`), a Gauss-Seidel
 solver for the same linear system (:func:`pagerank_gauss_seidel`), deterministic
 ranking helpers (:func:`ranking`, :func:`top_k`, :func:`rank_positions`,
 :func:`rank_positions_ties`, :func:`top_k_overlap`, :func:`kendall_tau`,
-:func:`largest_rank_shifts`), and
-reading and modelling
+:func:`largest_rank_shifts`), dense helpers in the course's matrix notation for
+small graphs (:func:`adjacency_matrix`, :func:`hyperlink_matrix`,
+:func:`stochastic_matrix`, :func:`google_matrix`, :func:`pagerank_eigenvector`),
+and reading and modelling
 the CAIDA AS-relationship snapshots (:func:`read_as_rel`,
 :func:`build_edge_list`, :func:`save_build`, :func:`load_build`) and the CAIDA
 customer-cone sizes, both as shipped (:func:`read_ppdc_ases`) and recomputed
@@ -34,6 +36,13 @@ from pagerank.caida import (
     read_as_rel,
     read_ppdc_ases,
     save_build,
+)
+from pagerank.dense import (
+    adjacency_matrix,
+    google_matrix,
+    hyperlink_matrix,
+    pagerank_eigenvector,
+    stochastic_matrix,
 )
 from pagerank.gauss_seidel import pagerank_gauss_seidel
 from pagerank.graph import DirectedGraph, from_edge_list
@@ -78,4 +87,9 @@ __all__: list[str] = [
     "CustomerCones",
     "read_ppdc_ases",
     "customer_cone_sizes",
+    "adjacency_matrix",
+    "hyperlink_matrix",
+    "stochastic_matrix",
+    "google_matrix",
+    "pagerank_eigenvector",
 ]
