@@ -1,4 +1,4 @@
-alpha,tau_b_top1000_union,top10_overlap
+alpha,tau_b_top1000_union_vs_085,overlap_top10_vs_085
 0.5,0.5489640537735959,0.7
 0.7,0.7387472544952859,0.7
 0.85,1.0,1.0
