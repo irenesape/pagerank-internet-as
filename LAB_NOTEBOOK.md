@@ -1429,3 +1429,9 @@ The wall-time columns were also split out of `03_convergence_vs_alpha.csv` into
 a separate `03_timings.csv`, so the main table no longer changes on every run;
 `03_convergence_vs_alpha.csv` gained the columns `theory_power_iterations` and
 `rate_over_alpha`.
+
+**Note, 2026-10-20.** The top-10 churn is three ASes, not two: AS174, AS3356
+and AS1000 leave at alpha 0.99, and AS1000 is itself a peering hub (3 customers,
+5,138 peers) that falls rather than rises, so the trend is "transit providers
+fall, most peering hubs climb" with AS1000 as the exception; the full trajectory
+across alpha 0.50, 0.85 and 0.99 is in `03_rank_trajectories.csv`.
