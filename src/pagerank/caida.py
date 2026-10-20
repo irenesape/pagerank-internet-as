@@ -342,11 +342,19 @@ def customer_cone_sizes(
     of *distinct* ASes in that set including the AS itself, so an AS with no
     customers has cone size 1.
 
-    This recomputes from the ``as-rel`` snapshot what the shipped ``ppdc-ases``
-    file states, so the two can be cross-checked: CAIDA's inference also folds
-    peer and sibling relationships into the "provider-peer-customer" cone, so
-    the two need not agree exactly, but the direct-customer reachability
-    computed here is a lower bound a consistent file cannot fall below.
+    This computes the *recursive* cone over the inferred provider-to-customer
+    links: every AS reachable downwards, regardless of whether any observed
+    BGP path passes through the root. CAIDA's shipped ``ppdc-ases`` file is a
+    different object, the *provider/peer-observed* cone (Luckie et al., IMC
+    2013): an AS counts in the root's cone only if a path seen from one of the
+    root's providers or peers reaches it through the root via customer links.
+    Every observed-cone member is reachable by customer links, so the recursive
+    cone computed here is an **upper bound** on (a superset of) the shipped
+    cone, never smaller. The two therefore differ whenever an inferred customer
+    link was never seen carrying the root's routes; a single such link into a
+    large network inflates the recursive cone by that network's whole cone,
+    which is why CAIDA observes cones from paths rather than recursing over
+    inferred links.
 
     A provider-to-customer adjacency is built once from the ``-1`` rows; each
     requested ASN is then expanded by breadth-first search. The visited set
