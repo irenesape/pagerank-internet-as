@@ -9,7 +9,8 @@ iteration, Gauss-Seidel, local push, metrics).
 
 So far this provides graph construction (:class:`DirectedGraph`,
 :func:`from_edge_list`), the power-iteration solver with dangling-node
-treatment (:class:`PageRankResult`, :func:`pagerank_power`), deterministic
+treatment (:class:`PageRankResult`, :func:`pagerank_power`), a Gauss-Seidel
+solver for the same linear system (:func:`pagerank_gauss_seidel`), deterministic
 ranking helpers (:func:`ranking`, :func:`top_k`, :func:`rank_positions`,
 :func:`rank_positions_ties`, :func:`top_k_overlap`, :func:`kendall_tau`,
 :func:`largest_rank_shifts`), and
@@ -34,6 +35,7 @@ from pagerank.caida import (
     read_ppdc_ases,
     save_build,
 )
+from pagerank.gauss_seidel import pagerank_gauss_seidel
 from pagerank.graph import DirectedGraph, from_edge_list
 from pagerank.metrics import (
     kendall_tau,
@@ -48,11 +50,15 @@ from pagerank.power import PageRankResult, pagerank_power
 
 __version__ = "0.1.0"
 
+# Note: pagerank_gauss_seidel is imported above (alphabetical module order) and
+# listed in __all__ below.
+
 __all__: list[str] = [
     "DirectedGraph",
     "from_edge_list",
     "PageRankResult",
     "pagerank_power",
+    "pagerank_gauss_seidel",
     "ranking",
     "top_k",
     "rank_positions",
