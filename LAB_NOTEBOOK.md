@@ -1272,3 +1272,26 @@ PageRank top 20 / 100 / 1000, **1 / 5 / 97** have cone size 1, i.e. no inferred
 customers at all. That share of customerless networks high in the PageRank
 ordering is the mechanism behind the low agreement between PageRank `both` and
 the cone.
+**Second correction, 2026-10-20.** The first correction was itself wrong on
+the main point. It called the shipped cone inconsistent "by definition", on the
+reasoning that a customer cone must contain every direct customer. That holds
+for the *recursive* cone, not for the one CAIDA ships. The `serial-1` README
+calls `ppdc-ases` the provider-peer customer cone, and the IMC 2013 paper
+defines it from observed BGP paths: an AS is in X's cone only if a path seen
+from one of X's providers or peers reaches it through X by customer links. A
+direct customer of X whose routes were never observed that way is legitimately
+absent from X's cone, so the shipped cone can be smaller than X's inferred
+customer count without any error in the file. The 19 ASes with
+`cone_size - 1 < customers`, AS286 among them (805 inferred customers, cone 1),
+are two measurements of the same graph disagreeing, not a corrupt file. The
+converse direction is the one that is forced: the recursive cone computed by
+`customer_cone_sizes` is a superset of the observed cone, so it is never
+smaller, which the notebook now asserts over the union of the top 1000 by
+shipped cone and by PageRank (true for all of them). The large section-4b gaps
+are the recursive definition's fragility: AS701 has AS6939 (recursive cone
+58,094) among its 1,154 inferred customers, so its recursive cone absorbs
+6939's and reaches 60,473 against a shipped 3,450. One misinferred link
+inflates the recursive cone by a whole network, which is exactly why CAIDA
+observes cones from paths. The shipped cone stays the reference; the docstring
+of `customer_cone_sizes`, which had called the recursive count a lower bound,
+now says upper bound.
