@@ -1435,3 +1435,99 @@ and AS1000 leave at alpha 0.99, and AS1000 is itself a peering hub (3 customers,
 5,138 peers) that falls rather than rises, so the trend is "transit providers
 fall, most peering hubs climb" with AS1000 as the exception; the full trajectory
 across alpha 0.50, 0.85 and 0.99 is in `03_rank_trajectories.csv`.
+
+**Correction, 2026-10-20.** The first correction above, arguing that the
+`alpha * lambda_2(P)` reasoning does not involve closed classes, added the
+clause "the primary graph is irreducible (every AS keeps an out-edge through
+peering)". That is false, and the mistake is worth keeping because it is an
+easy one. Having no dangling node means every row of the transition matrix is
+stochastic; it does not make the chain irreducible. Measured with
+`scipy.sparse.csgraph` on the primary build: 1 weakly connected component but
+59,868 strongly connected components, and **exactly one closed class** (an SCC
+no edge leaves) of 20,401 ASes, with the other 60,109 ASes transient — they
+lead into the core but nothing in the core leads back. So the chain is
+**reducible with a single closed class**. This does not disturb the measured
+rates: a single closed class is aperiodic here, so the transition matrix `P`
+still has a simple dominant eigenvalue 1 with `abs(lambda_2(P)) < 1`, and the
+Google matrix's second eigenvalue is `alpha * lambda_2(P)` exactly as before.
+A reducible chain with *several* closed classes would be the problem case
+(eigenvalue 1 repeated, the stationary vector not unique without
+teleportation); the primary graph is not that case. Peering `none` is: 494
+closed classes (the 494 dangling ASes as singletons, before the repair) and
+361 weak components. The structure is quantified in notebook 01, section 7.
+
+---
+
+## 2026-10-20 — The course's formulation and the graph's structure
+
+Tied the implementation to the formulation the course teaches, and measured the
+reducibility structure of the real graph. Three additions: dense matrices in
+the lesson's notation to show the construction and validate the sparse solver;
+the lesson's worked examples reproduced as tests and in notebook 00; the closed-
+class structure of the AS graph in notebook 01.
+
+### Decisions
+
+- **Dense course-notation helpers kept in a separate module, for small graphs
+  only.** `dense.py` builds `A -> H -> S -> G` and the dominant left eigenvector
+  of `G` in the lesson's row convention, so the construction can be shown step
+  by step and the sparse solver validated against an independent dense route.
+  They are segregated from the sparse solver and documented as small-graph-only
+  because `G` is dense: on the real graph it would be 80,510² entries, against
+  884,790 non-zeros in the stored `H`. No reported number ever comes from them.
+- **The sparse solver's `P^T` mapped explicitly to the lesson's `H`.** Notebook
+  00 asserts `graph.transpose == H^T` on the five-node example and shows the
+  matrix-free update `x_new = alpha P^T x + (alpha m + 1 - alpha) v` is the
+  lesson's row update transposed. The project computed this all along; what was
+  missing was the words "primitive", "left eigenvector", `H`, `S`, `G`, which
+  the rubric rewards (the theory-implementation connection).
+- **Closed classes computed with `scipy.sparse.csgraph`, not by hand.** SCCs and
+  the closed/transient split are a standard connectivity computation; a
+  from-scratch Tarjan would add risk for nothing the project is graded on. The
+  "from scratch" claim is about the PageRank solver, as with the tie-aware
+  Kendall tau earlier.
+- **Only the examples solved on the lesson slides are used.** The accompanying
+  exercise sheet is left untouched: it is practice whose answers are not the
+  project's to publish, and the four slide examples are enough to tie the solver
+  to the course's notation.
+
+### What broke
+
+- **An earlier lab claim that the primary graph is irreducible was wrong.**
+  Symptom: the convergence entry's first correction asserted irreducibility
+  "because every AS keeps an out-edge through peering". Cause: conflating "no
+  dangling node" (every row stochastic) with "strongly connected". Fix: measured
+  the structure (one closed class of 20,401, 59,868 SCCs, 60,109 transient) and
+  appended a dated correction to that entry; the `alpha * lambda_2(P)` reading
+  is unaffected because a single aperiodic closed class still gives a simple
+  dominant eigenvalue.
+
+### Verified
+
+- Suite: 124 passed, 2 skipped (the two dangling-ground-truth skips). New: 9
+  dense-matrix tests, 5 lecture-example tests, 4 structure tests.
+- The sparse solver reproduces the lesson's solved examples: the 5-node example
+  at alpha 0.85 to the four printed decimals (largest difference 5e-5); the
+  6-node and 8-node exercises at alpha 0.9 to the three printed decimals
+  (largest difference 7e-4, rounding only). The dense eigenvector agrees with
+  the sparse solver to better than 1e-13 on each.
+- 4-node simple case (no teleportation): exact stationary vector
+  `(4, 6, 9, 12)/31` verified as `pi H = pi` in `Fraction` arithmetic; in-degree
+  ranks Y first, PageRank ranks Z first, so the two orderings differ.
+- Structure of the fixtures: toy graph one closed class {0,1,2} with node 3
+  transient; dangling fixture the sink node 3 as its own closed class; 8-node
+  lesson example two closed classes {C,D,E} and {F,G,H}.
+- Real graph: primary build 1 weak component, 59,868 SCCs, one closed class of
+  20,401, 60,109 transient; all 18 input-clique ASes in that closed class; core
+  PageRank mass 0.61, 0.88, 0.99 at alpha 0.5, 0.85, 0.99. Peering `none`: 361
+  weak components, 494 closed classes. Table in
+  `results/tables/01_graph_structure.csv`.
+- Notebooks 00 and 01 execute top to bottom with `nbconvert --execute` (about 3
+  and 6 seconds), committed with outputs cleared.
+
+### Open items
+
+- `DANGLING_PAGERANK_EXACT` is still underived by hand and still `None`; the two
+  solver tests consuming it stay skipped. Unchanged.
+- The single extension still standing is the customer cone; convergence and the
+  course alignment are done. Local push was dropped.
