@@ -1393,3 +1393,39 @@ peering-none graph, in one notebook.
   everything else is finished and written up.
 - `DANGLING_PAGERANK_EXACT` is still underived by hand and still `None`; the two
   solver tests consuming it stay skipped. Unchanged.
+**Correction, 2026-10-20.** Two statements in the *Verified* list above are
+wrong, contradicted by the notebook's own tables, and are corrected here
+rather than edited out.
+
+- *"Iterations grow as `log(tol)/log(alpha)` predicts" and "the alpha bound on
+  the contraction is tight and confirmed".* The opposite is true: that
+  expression is an upper *bound*, and on these graphs it is loose. At alpha
+  0.99 the power method takes 215 iterations against the bound's 2,292, a
+  tenfold gap. The true rate is not `alpha` but `alpha * abs(lambda_2(P))`, the
+  second eigenvalue of the Google matrix being `alpha` times that of the
+  transition matrix `P` (Haveliwala and Kamvar, *The second eigenvalue of the
+  Google matrix*, Stanford 2003). So the observed `rate / alpha` estimates
+  `abs(lambda_2(P))`, and it is measured as about **0.53 and flat** across every
+  alpha on the peering-`none` graph — exactly the constant the theory predicts,
+  since it is a property of `P` alone — and **drifting from 0.84 to 0.94** on
+  the primary graph, reported as measured (the tail estimate may not be fully
+  asymptotic at high alpha, or several eigenvalues of `P` are close). The rate
+  stays below `alpha` on both graphs, so the bound holds; it is simply not
+  tight, and the earlier "closed classes make it equal alpha" reasoning does not
+  apply here, because the primary graph is irreducible (every AS keeps an
+  out-edge through peering), not a reducible chain.
+- *"Ranking stability ... does not depend on the exact alpha".* The ranking is
+  alpha-sensitive. Tau-b over the top-1000 union against alpha 0.85 is 0.55 at
+  alpha 0.5 and 0.64 at 0.99, and the top-10 overlap is 0.7 at both ends. The
+  churn has a direction: at alpha 0.99 the two largest transit providers, AS174
+  and AS3356 (both clique members), *leave* the top 10, replaced by heavily
+  peered networks (AS32590, AS37721, AS132337). This is the central finding of
+  the core ranking work — peering hubs dominate under the peering-`both` model —
+  getting stronger as alpha grows and teleportation weakens. So alpha 0.85 is a
+  modelling choice that has to be stated and justified, not a neutral default:
+  the top of the ranking moves with it.
+
+The wall-time columns were also split out of `03_convergence_vs_alpha.csv` into
+a separate `03_timings.csv`, so the main table no longer changes on every run;
+`03_convergence_vs_alpha.csv` gained the columns `theory_power_iterations` and
+`rate_over_alpha`.
