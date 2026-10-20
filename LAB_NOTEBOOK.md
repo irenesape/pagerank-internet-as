@@ -1295,3 +1295,101 @@ inflates the recursive cone by a whole network, which is exactly why CAIDA
 observes cones from paths. The shipped cone stays the reference; the docstring
 of `customer_cone_sizes`, which had called the recursive count a lower bound,
 now says upper bound.
+
+---
+
+## 2026-10-20 — Convergence and the damping factor
+
+Extension 6: how the damping factor drives convergence and the ranking, and
+whether a second solver beats the power method. A Gauss-Seidel solver on the
+linear form of PageRank, plus a sweep of alpha over
+{0.50, 0.70, 0.85, 0.90, 0.95, 0.99} on the primary graph and on the
+peering-none graph, in one notebook.
+
+### Decisions
+
+- **Solve the linear form `(I - alpha P^T) x = (1 - alpha) v` by Gauss-Seidel,
+  one sparse lower-triangular solve per sweep.** Splitting `A = (D - L) - U`
+  and evaluating `x_new = (D - L)^{-1} ((1 - alpha) v + U x_old)` with
+  `spsolve_triangular` produces exactly the index-order scalar sweep, so it is
+  Gauss-Seidel and not a black-box solver; a test checks the first three sweeps
+  against a scalar reference loop element for element. One sweep on the primary
+  graph measured about 9 ms bare (24 ms under the executed notebook), far under
+  the 1 s threshold at which the design switches to an explicit forward-
+  substitution loop, so the triangular-solve path stands and the loop fallback
+  is not needed.
+- **Normalise once at the end, never inside the loop.** The transition matrix
+  is substochastic (dangling columns are zero), so the linear solve leaks mass
+  by design and its solution does not sum to 1. Dividing by the L1 norm once
+  after convergence is the dangling treatment itself: the toy-graph proof
+  (`test_dangling_conventions_agree_exactly`) shows the normalised
+  substochastic solution equals the repaired-matrix vector. Rescaling every
+  sweep would make the map non-linear and converge elsewhere.
+- **Report the convergence-rate comparison as a spectral-radius finding, not a
+  speed claim.** The first draft of the plan expected Gauss-Seidel to need
+  fewer iterations, a result that holds for many web graphs. It does not hold
+  here, and the honest framing is the reason why: each method converges at the
+  spectral radius of its own iteration matrix, and which is smaller depends on
+  the node ordering relative to the link structure. The notebook states this,
+  measures both rates on the two small fixtures exactly and on the AS graph by
+  the observed tail ratio, and concludes there is no gain on this graph in
+  ascending-ASN order. Node reorderings that might realise the advantage stay
+  out of scope (an extension of an extension).
+
+### What broke
+
+- **The expected "Gauss-Seidel needs fewer iterations" was false and would have
+  failed a test.** Symptom: on the toy graph Gauss-Seidel takes 70 sweeps to
+  tol 1e-13 against the power method's 60 (53 against 47 at 1e-10, 30 against 28
+  at 1e-6); on the primary graph the two tie within one iteration (68 against
+  69 at 1e-10) and Gauss-Seidel then falls behind as alpha rises, 930 against
+  215 at alpha 0.99. Cause: the Gauss-Seidel iteration matrix contracts less
+  per step than the power method's here. The exact 4x4 rates confirm it: on the
+  toy graph `rho(M^-1 U) = 0.668` against the Google matrix `|lambda_2| = 0.601`;
+  on the acyclic dangling fixture, whose node indices are already a topological
+  order, Gauss-Seidel is exact after one sweep (`rho = 0.000`). Fix: the
+  contested iteration-count test was replaced by two tests — one asserting the
+  measured rate ordering on the toy graph (and that Gauss-Seidel takes more
+  iterations there), one asserting one-sweep exactness on the acyclic fixture —
+  and the notebook was reframed to present the ordering dependence as the
+  finding.
+- **Per-step cost cuts the other way and had to be reported.** Even where
+  iteration counts tie, each Gauss-Seidel sweep is a triangular solve costing
+  about ten times a power-method mat-vec (median 8.25 ms against 0.80 ms per
+  iteration on the primary graph), so the power method wins decisively in wall
+  time. Stated plainly in the notebook rather than left implicit in the timing
+  table.
+
+### Verified
+
+- Suite green: 98 passed, 2 skipped (the two dangling-ground-truth skips,
+  unchanged). The Gauss-Seidel file contributes 10 tests.
+- Both solvers agree to better than 1e-9 at every alpha on both graphs (max
+  absolute difference 5e-13 to 3.5e-11), asserted in the notebook.
+- Observed power-method tail rate is at most alpha (within 0.01) at every alpha
+  on both graphs: primary 0.420 / 0.590 / 0.741 / 0.824 / 0.891 / 0.929 across
+  the six alphas, peering-none lower throughout. The alpha bound on the
+  contraction is tight and confirmed.
+- Power-method iterations grow as `log(tol)/log(alpha)` predicts: about 25 at
+  alpha 0.5 to about 215 at 0.99 on the primary graph.
+- Ranking stability on the primary graph against alpha 0.85: tau-b over the
+  top-1000 union stays above 0.6 across the whole range (0.549 at 0.5, 0.644 at
+  0.99) and the top 10 changes by at most three ASes, so the notebook-02 reading
+  of the top of the ranking does not depend on the exact alpha.
+- Notebook executes top to bottom under `nbconvert` in about 13.5 s of
+  computation (16 s wall), under the 3-minute budget. Tables
+  `03_convergence_vs_alpha.csv`, `03_ranking_vs_alpha.csv` and figures
+  `03_iterations_vs_alpha.png`, `03_residuals_alpha085.png` written to
+  `results/`.
+
+### Open items
+
+- The extension list is now reduced to one: convergence is done, local push
+  remains and is the first to be cut if time runs short.
+- Gauss-Seidel brings no speed gain on this graph in ascending-ASN order. If
+  local push is dropped, a reordering of the nodes (approximate topological, or
+  by the strongly-connected-component condensation) is the natural way to make
+  the Gauss-Seidel comparison favourable, but it stays out of scope unless
+  everything else is finished and written up.
+- `DANGLING_PAGERANK_EXACT` is still underived by hand and still `None`; the two
+  solver tests consuming it stay skipped. Unchanged.
