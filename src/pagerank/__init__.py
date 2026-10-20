@@ -16,7 +16,8 @@ ranking helpers (:func:`ranking`, :func:`top_k`, :func:`rank_positions`,
 :func:`largest_rank_shifts`), dense helpers in the course's matrix notation for
 small graphs (:func:`adjacency_matrix`, :func:`hyperlink_matrix`,
 :func:`stochastic_matrix`, :func:`google_matrix`, :func:`pagerank_eigenvector`),
-and reading and modelling
+the connectivity structure of a directed graph (:class:`GraphStructure`,
+:func:`graph_structure`), and reading and modelling
 the CAIDA AS-relationship snapshots (:func:`read_as_rel`,
 :func:`build_edge_list`, :func:`save_build`, :func:`load_build`) and the CAIDA
 customer-cone sizes, both as shipped (:func:`read_ppdc_ases`) and recomputed
@@ -56,6 +57,7 @@ from pagerank.metrics import (
     top_k_overlap,
 )
 from pagerank.power import PageRankResult, pagerank_power
+from pagerank.structure import GraphStructure, graph_structure
 
 __version__ = "0.1.0"
 
@@ -92,4 +94,6 @@ __all__: list[str] = [
     "stochastic_matrix",
     "google_matrix",
     "pagerank_eigenvector",
+    "GraphStructure",
+    "graph_structure",
 ]
