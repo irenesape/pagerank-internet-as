@@ -1,0 +1,3 @@
+graph,weak_components,strong_components,largest_scc,closed_classes,largest_closed_class,transient_nodes
+primary (peering both),1,59868,20401,1,20401,60109
+peering none,361,80510,1,494,1,80016
