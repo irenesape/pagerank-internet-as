@@ -1753,3 +1753,46 @@ holds exactly.
   decision (peering and alpha 0.85), the top of the ranking, the conclusions.
 - Section 4.2 still guards the comparison with `if ... is None`; the final
   build replaces it with the plain comparison.
+
+---
+
+## 2026-11-23 — Peering and the damping factor: decided
+
+Since the data preparation, `peering both` has been the provisional primary
+graph and `none` a sensitivity. With the results of the core and the
+extensions in hand, the choice is now made and argued in section 5 of the
+submission notebook.
+
+### Decisions
+
+- **Peering in both directions is the primary graph.** I considered `none`,
+  since "who pays whom" is the cleanest economic reading of a vote. Two facts
+  decided against it. Peering is most of the data (358,942 of 525,848
+  relationships), and an edge each way is the closest reading of an agreement
+  between equals. And without peering all 18 clique members have no out-link,
+  so the rank of the networks at the top (22.5% of the total) is spread evenly
+  instead of following links. Without peering the ranking also lands close to
+  CAIDA's customer cone (Kendall tau-b 0.625 on the top-1000 union), which is
+  already published; with peering it measures position in the whole
+  interconnection graph. `none` stays in the notebook as the sensitivity that
+  exercises the dangling treatment on real data.
+- **alpha = 0.85.** The value of the original paper and of the lecture. At
+  0.5 each step is a random jump half of the time; at 0.99 the closed class of
+  20,401 ASes holds 99% of the mass, the transient ASes end up near zero and
+  the solver needs about three times the iterations. The top of the ranking
+  does move with alpha (Kendall tau-b about 0.55 and 0.64 against 0.85), so
+  the sensitivity is reported rather than hidden.
+
+### What broke
+
+- **The surfer's walk length.** I first described alpha 0.85 as "about 6.7
+  links before a jump", which is `1/(1-alpha)` and counts the jump itself. The
+  expected number of links followed is `alpha/(1-alpha)`, about 5.7. Caught
+  before it went into the notebook.
+
+### Open items
+
+- The 99% closed-class mass at alpha 0.99 comes from the data-preparation
+  notebook; the alpha table of the submission notebook gains that column in the
+  final build so the claim is backed where it is made.
+- Two author sections remain: the top of the ranking and the conclusions.
