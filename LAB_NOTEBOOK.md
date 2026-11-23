@@ -214,6 +214,8 @@ hand. The cleared-output policy above is what keeps branches usable.
   leaves no room for a broken figure, a last-minute rerun, or the write-up
   reading worse than expected. The README and results sections are finished
   against 25 November.
+  *Superseded 2026-11-23: the target is now the course submission deadline,
+  9 December. See that day's entry.*
 ---
 
 ## 2026-09-18 — First inspection of the CAIDA dataset
@@ -607,6 +609,8 @@ Carried forward, with status under the new brief:
   the core is now a smaller, better-defined target than the three original
   research questions were — which is the first genuinely reassuring thing about
   the change.
+  *Superseded 2026-11-23: the target is now the course submission deadline,
+  9 December. See that day's entry.*
 
 ### Correction, same day — the dangling conventions are all the same convention
 
@@ -1531,3 +1535,27 @@ class structure of the AS graph in notebook 01.
   solver tests consuming it stay skipped. Unchanged.
 - The single extension still standing is the customer cone; convergence and the
   course alignment are done. Local push was dropped.
+
+---
+
+## 2026-11-23 — Schedule: the target moves to the course deadline
+
+### Decisions
+
+- **The working target is now the course deadline, not 25 November.** The
+  brief sets two dates. The presentation is on 10 December 2026 and lasts 15 to
+  20 minutes. The `.ipynb` and the slides go to the "Programming Assignment
+  Submission" forum on Atenea at least 24 hours before that, so by 9 December
+  at the latest. The 25 November date was a buffer chosen in September, and
+  with the hand derivation and the final notebook still open it no longer fits.
+- **Order of what is left.** The core write-up comes first: the dangling ground
+  truth by hand, the choice of peering direction and of alpha 0.85, and what
+  the top of the ranking means. Then the submission notebook and the README.
+  Then the slides. The notebook and the presentation count the same in the
+  grade, so the slides get their own days instead of the last evening.
+
+### Open items
+
+- `DANGLING_PAGERANK_EXACT` still `None`; the two tests consuming it stay
+  skipped.
+- Submission by 9 December; presentation 10 December.
