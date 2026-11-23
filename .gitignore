@@ -68,3 +68,5 @@ results/**/*.npy
 results/**/*.npz
 results/**/*.pkl
 results/**/*.h5
+
+submission/caida_data/

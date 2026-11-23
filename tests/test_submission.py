@@ -259,3 +259,89 @@ def test_final_build_passes_once_the_work_is_in(tmp_path: Path) -> None:
     finished = "## Modelling\n\nThe author's text.\n\n```constants\nN\n```\n"
     nb = _build(tmp_path, finished, final=True)
     assert len(nb.cells) == 2
+# --------------------------------------------------------------------------
+# The committed submission notebook
+# --------------------------------------------------------------------------
+NOTEBOOK = REPO / "submission" / "pagerank_internet_as.ipynb"
+NOTEBOOK_SOURCE = REPO / "submission" / "pagerank_internet_as.md"
+
+#: md5 sums of the two CAIDA files, checked against the files at CAIDA and
+#: against the local copies when the notebook was written.
+CAIDA_MD5 = {
+    "20260901.as-rel.txt.bz2": "f4cba16613623eb1bc67355d1dc25213",
+    "20260901.ppdc-ases.txt.bz2": "1c6b0c4c62a16d9bfa6c8fb75e6cd03d",
+}
+
+
+def _committed() -> nbformat.NotebookNode:
+    return nbformat.read(str(NOTEBOOK), as_version=4)
+
+
+def _code_lines() -> list[str]:
+    return [
+        line
+        for cell in _committed().cells
+        if cell.cell_type == "code"
+        for line in cell.source.splitlines()
+    ]
+
+
+def test_committed_notebook_equals_a_fresh_build() -> None:
+    """The hand-in cannot drift from its source or from the package code.
+
+    Only the cell types and sources are compared: outputs are cleared in the
+    committed draft and present in the final version, and neither is part of
+    what the builder produces.
+    """
+    fresh = builder.build_notebook()
+    committed = _committed()
+    assert [(c.cell_type, c.source) for c in committed.cells] == [
+        (c.cell_type, c.source) for c in fresh.cells
+    ]
+
+
+def test_every_inlined_object_is_in_the_notebook_verbatim() -> None:
+    code = "\n".join(c.source for c in _committed().cells if c.cell_type == "code")
+    blocks = builder.parse_source(NOTEBOOK_SOURCE.read_text(encoding="utf-8"))
+    entries = [
+        entry
+        for block in blocks
+        if block.kind == "inline"
+        for _, entry in builder._entries(block)
+    ]
+    assert entries, "the source inlines no package object"
+    for entry in entries:
+        assert builder.object_source(entry) in code, entry
+
+
+def test_notebook_does_not_import_the_package() -> None:
+    """The grader has the notebook alone, so ``pagerank`` is not importable."""
+    for line in _code_lines():
+        assert not line.lstrip().startswith(("import pagerank", "from pagerank")), line
+
+
+def test_notebook_uses_only_the_four_libraries_and_the_standard_library() -> None:
+    allowed = {"numpy", "scipy", "pandas", "matplotlib"}
+    stdlib = set(sys.stdlib_module_names)
+    for line in _code_lines():
+        words = line.split()
+        if len(words) >= 2 and words[0] in ("import", "from"):
+            root = words[1].split(".")[0]
+            assert root in allowed | stdlib, line
+        assert "pip install" not in line and "git clone" not in line, line
+
+
+def test_notebook_md5_constants_match_the_verified_values() -> None:
+    code = "\n".join(c.source for c in _committed().cells if c.cell_type == "code")
+    namespace: dict = {}
+    # Evaluate only the dictionary literal, not the download code around it.
+    start = code.index("SNAPSHOT_MD5 = {")
+    end = code.index("}", start) + 1
+    exec(code[start:end], namespace)
+    assert namespace["SNAPSHOT_MD5"] == CAIDA_MD5
+
+
+def test_notebook_prose_has_no_em_dash() -> None:
+    for cell in _committed().cells:
+        if cell.cell_type == "markdown":
+            assert "\u2014" not in cell.source, cell.source[:60]
