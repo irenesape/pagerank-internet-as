@@ -11,7 +11,7 @@ Internet and Networked Economy, MATT, ETSETB, UPC. Programming assignment, Proje
 - The CAIDA AS Relationships snapshot of 1 September 2026 gives 80,510 autonomous systems (ASes) and 884,790 directed edges. An edge points from a customer to its provider, and each peering link becomes one edge in each direction.
 - PageRank is implemented from scratch with the power method on a sparse matrix. Dangling nodes (ASes with no out-link) redistribute their mass uniformly. The code is checked against exact fractions, a hand-derived fixture, and the lecture examples.
 - At damping 0.85 the power method converges in 69 iterations to a residual below 1e-10. Of the top 20 ASes, 16 have more peers than customers and 4 belong to the clique. In all, 14 of the 18 clique members are in the top 100.
-- PageRank and in-degree: the two rankings agree on 9 of the top 10, 44 of the top 50 and 86 of the top 100 ASes. They disagree where an AS has many in-links from small networks that each pass on little rank.
+- PageRank and in-degree: the two rankings agree on 9 of the top 10, 44 of the top 50 and 86 of the top 100 ASes. They disagree where an AS has many in-links from networks with thousands of out-links, each of which passes on little rank.
 - With peering links removed, 494 ASes have no out-link, all 18 clique members among them, and they hold 22.5% of the PageRank mass. The same solver handles it.
 
 <!-- cell -->
@@ -140,10 +140,8 @@ Some choices are facts from the data and some are decisions.
 **Decisions.**
 
 1. *Vote direction.* PageRank needs an edge to mean "endorses". We let a customer endorse its provider: the edge runs customer to provider, so rank flows up the hierarchy towards the networks that many others pay for transit.
-2. *Peering links.* A peering link says nothing about who endorses whom. We either add an edge in each direction (`both`) or leave peering out (`none`). The counts in section 5 show why this matters: most edges are peering edges, and without them 494 ASes have no out-link, the whole clique included.
+2. *Peering links.* A peering link says nothing about who endorses whom. We either add an edge in each direction (`both`) or leave peering out (`none`). The counts in section 5 show why this matters: most edges are peering edges, and without them 494 ASes have no out-link, the whole clique included. The decision is argued in section 5.
 3. *Duplicates and self-loops* are removed and counted. Every AS is kept, including the 28 IXP ASes (internet exchange points) that the header lists.
-
-[AUTHOR: modelling]
 
 <!-- cell -->
 
@@ -165,7 +163,7 @@ which costs one sparse product. In the code the matrix is stored transposed, bec
 
 **Dangling treatment.** The term $\alpha\,\pi^T w$ is the mass sitting on dangling ASes, and it is spread uniformly. With uniform teleportation this gives the same vector as leaving $H$ substochastic, solving the linear system, and normalising the result to sum 1. Section 4 checks this on a fixture.
 
-**Stopping rule.** Iterate until $\|\pi^{(k+1)}-\pi^{(k)}\|_1 < 10^{-10}$. The error shrinks at least like $\alpha^k$, so the number of iterations is at most $\lceil \ln(10^{-10}) / \ln \alpha \rceil$, which is 142 for $\alpha=0.85$.
+**Stopping rule.** Iterate until $\|\pi^{(k+1)}-\pi^{(k)}\|_1 < 10^{-10}$. Each step shrinks the error by at least a factor $\alpha$, so about $\lceil \ln(10^{-10}) / \ln \alpha \rceil$ steps are enough, 142 for $\alpha=0.85$. Section 9.2 shows that the actual counts are lower.
 
 <!-- cell -->
 
@@ -256,7 +254,7 @@ assert np.abs(toy_result.vector - toy_exact).max() < 1e-12
 
 ### 4.2 A graph with a dangling node
 
-The second fixture has four nodes and edges $0\to1$, $0\to2$, $1\to2$, $1\to3$, $2\to3$. Node 3 has no out-link, so it is dangling. Node 0 has no in-link, so only teleportation reaches it. Its PageRank is derived by hand from the repaired matrix $S$ at $\alpha=17/20$ with uniform teleportation.
+The second fixture has four nodes and edges $0\to1$, $0\to2$, $1\to2$, $1\to3$, $2\to3$. Node 3 has no out-link, so it is dangling. Node 0 has no in-link, so it receives only the share that every node gets: teleportation plus its part of node 3's redistributed mass. Its PageRank is derived by hand from the repaired matrix $S$ at $\alpha=17/20$ with uniform teleportation.
 
 [AUTHOR: dangling]
 
@@ -389,6 +387,8 @@ print(f"peering none: {graph_none.n_edges:,} edges, {int(graph_none.dangling.sum
 print(f"clique members among the dangling nodes: {int(graph_none.dangling[clique_nodes].sum())} of {len(clique_nodes)}")
 assert int(graph_none.dangling.sum()) == 494
 ```
+
+[AUTHOR: modelling]
 
 **Reducibility.** A random surfer without teleportation would eventually be stuck in a closed class, a set of ASes with no edge leaving it. The strongly connected components show how the primary graph is built.
 
@@ -635,7 +635,7 @@ print(f"Kendall tau-b, both vs none: {kendall_tau(pr, pr_none):.3f}")
 assert result_none.converged and abs(pr_none.sum() - 1) < 1e-12
 ```
 
-Without peering, the clique is among the ASes with no out-link, and the top of the ranking changes a lot: the top-20 overlap between the two conventions is only 0.25. This is where the dangling treatment matters on real data. Their mass is not lost: it is spread uniformly over all ASes at every step, and the vector still sums to 1.
+Without peering, the clique is among the ASes with no out-link, and the top of the ranking changes a lot: the top-20 overlap between the two conventions is only 0.25. This is where the dangling treatment matters on real data. The mass of the dangling ASes is not lost: it is spread uniformly over all ASes at every step, and the vector still sums to 1.
 
 ```python
 rank_none = rank_positions(pr_none)
@@ -647,6 +647,17 @@ pd.DataFrame(
     }
 ).sort_values("rank, peering none").reset_index(drop=True)
 ```
+
+```python
+node_2828 = int(index_of(build.asns, np.array([2828]))[0])
+print(
+    f"AS 2828: {n_customers[node_2828]} customers, {n_providers[node_2828]} providers, "
+    f"{n_peers[node_2828]} peers; rank {pr_rank[node_2828]} with peering both, "
+    f"{rank_none[node_2828]} with peering none"
+)
+```
+
+Under `none` an AS receives rank along links only from its customers, and AS 2828 has 2.
 
 <!-- cell -->
 
@@ -723,7 +734,7 @@ The two cone definitions are not the same object. CAIDA's cone is the set seen t
 
 ### 9.2 The damping factor
 
-The damping factor $\alpha$ sets how far a surfer follows links before teleporting. For $\alpha = 0.5,\ 0.85,\ 0.99$ the table gives the iterations needed, the bound $\lceil\ln(10^{-10})/\ln\alpha\rceil$, the observed rate (median ratio of successive residuals over the second half of the run) and how much the ranking moves relative to $\alpha=0.85$.
+The damping factor $\alpha$ sets how far a surfer follows links before teleporting. For $\alpha = 0.5,\ 0.85,\ 0.99$ the table gives the iterations needed, the estimate $\lceil\ln(10^{-10})/\ln\alpha\rceil$, the observed rate (median ratio of successive residuals over the second half of the run) and how much the ranking moves relative to $\alpha=0.85$.
 
 ```python
 rows = []
@@ -736,7 +747,7 @@ for alpha in (0.50, 0.85, 0.99):
         {
             "alpha": alpha,
             "iterations": run.iterations,
-            "bound": int(np.ceil(np.log(TOL) / np.log(alpha))),
+            "alpha^k estimate": int(np.ceil(np.log(TOL) / np.log(alpha))),
             "observed rate": float(np.median(tail[1:] / tail[:-1])),
             "top-10 overlap with 0.85": top_k_overlap(run.vector, pr, 10),
             "tau-b with 0.85 (top-1000 union)": kendall_tau(run.vector, pr, subset=union_alpha),
@@ -746,7 +757,7 @@ for alpha in (0.50, 0.85, 0.99):
 pd.DataFrame(rows).round(3)
 ```
 
-The bound holds and is loose: the observed rate is below $\alpha$ because the second eigenvalue of the matrix is smaller than $\alpha$. The top of the ranking changes with $\alpha$: a smaller $\alpha$ puts more weight on teleportation and a larger one on the link structure.
+The estimate holds and is loose: the observed rate is below $\alpha$ because the second eigenvalue of the matrix is smaller than $\alpha$. The top of the ranking changes with $\alpha$: a smaller $\alpha$ puts more weight on teleportation and a larger one on the link structure.
 
 <!-- cell -->
 
@@ -756,7 +767,7 @@ The bound holds and is loose: the observed rate is below $\alpha$ because the se
 
 - The relationships are inferred from BGP paths, not observed. Some of them are wrong.
 - The snapshot is one month. The graph changes, and a ranking for another month would differ in its details.
-- Peering links are under-observed in BGP data, because they are only announced to the peer and its customers. The graph under-counts them, and the peering decision matters more than its size suggests.
+- Peering links are under-observed in BGP data, because they are only announced to the peer and its customers. So the graph under-counts them, and the true share of peering edges is probably above the 81% measured here.
 - PageRank here measures position in the graph of agreements. It does not measure traffic, revenue or the reach of an AS in any physical sense.
 - A single damping factor, 0.85, is used for the main results, from the web setting. Section 9.2 shows how far the ranking moves for other values.
 

@@ -1646,6 +1646,17 @@ It also removes the empty local push notebook.
   appear in the submission notebook's code cells. They are not edited, to keep
   the notebook equal to the package; see Open items.
 
+Added 2026-11-23, after review of the notebook text. Two statements were wrong
+and had passed my own check against the printed numbers, because the numbers
+were right and the explanation was not. Section 4.2 said node 0 of the dangling
+fixture is reached only by teleportation; in the repaired matrix it also
+receives its part of node 3's redistributed mass. The summary said the ASes that
+in-degree ranks higher have in-links from small networks; the table in section 7
+shows they have 120 to 170 in-links, mostly peering links from hubs with
+thousands of out-links. Both were corrected. The stopping-rule sentence was also
+softened: the formula for the number of iterations is an estimate, not a strict
+bound, because the first L1 difference can be as large as 2.
+
 ### Verified
 - `.venv/bin/python -m pytest -q`: 147 passed, 2 skipped (the two
   dangling-ground-truth tests). Six new tests cover the committed notebook:
