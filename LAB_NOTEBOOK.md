@@ -1559,3 +1559,128 @@ class structure of the AS graph in notebook 01.
 - `DANGLING_PAGERANK_EXACT` still `None`; the two tests consuming it stay
   skipped.
 - Submission by 9 December; presentation 10 December.
+
+---
+
+## 2026-11-23 — The submission notebook
+
+The hand-in is one `.ipynb` that the grader runs with *Run All* on a machine
+that has only that file. `from pagerank import ...` fails there, so the
+numbered notebooks cannot be handed in as they are. This entry covers the
+single self-contained notebook, how it is built, and the clean-environment run.
+It also removes the empty local push notebook.
+
+### Decisions
+- **One generated notebook, not a hand-copied one.** The implementation has to
+  be inside the notebook, but a second hand-maintained copy would drift from
+  the tested code in `src/pagerank/`. A build script writes the notebook from
+  a Markdown source plus the package code (`inspect.getsource`, verbatim), and
+  a test fails when the committed notebook differs from a fresh build. The
+  package stays the single source of truth.
+- **Source format: Markdown with fenced blocks.** Prose is written as ordinary
+  Markdown. A `python` block is a code cell as written, an `inline` block lists
+  `module:name` objects to copy from the package, and a `constants` block copies
+  the hand-derived values from `tests/test_toy_graph.py` by `repr`, so exact
+  fractions arrive unchanged. A line `[AUTHOR: id]` marks a section that only
+  the author writes, and the `--final` build refuses to run while one remains
+  or while `DANGLING_PAGERANK_EXACT` is still `None`.
+- **Download at run time, with an md5 check.** The lecturer allowed fetching the
+  CAIDA snapshot for *Run All*. Both files go to `caida_data/` next to the
+  notebook, are skipped when a file with the right md5 is already there, and
+  are written to a temporary name and renamed only after the md5 matches, so a
+  broken download is never mistaken for a good file. A wrong md5 raises an
+  error that says the file at CAIDA may have changed. The two md5 values are the
+  ones checked against the local copies.
+- **Core first, extensions last.** The order follows the lecturer's advice and
+  the rubric: problem and data, method, implementation, validation, the real
+  graph, the ranking, PageRank against in-degree, dangling nodes on real data,
+  then the customer cone and the damping factor in one short section.
+- **What is inlined.** Only what the notebook uses: graph, power iteration, the
+  parser and edge-list builder, four metrics (`ranking`, `rank_positions`,
+  `top_k_overlap`, `kendall_tau`), the structure routines, the five dense
+  course helpers and, in the extensions, the cone code. 27 objects in 7 cells.
+  Gauss-Seidel, `top_k`, `rank_positions_ties` and `largest_rank_shifts` stay in
+  the package: the notebook has no use for them, and unused code in a graded
+  notebook reads as noise.
+- **Counts of the real graph are printed in section 5, not section 1.** The
+  parser that reads the file is defined in section 3, and a cell cannot call a
+  function that is defined further down. Section 1 downloads the data and shows
+  the file's header and first relationships with plain Python; the peering
+  counts that make the modelling decision matter (81.1% of the edges, 494
+  dangling ASes) appear in section 5, and the modelling text in section 1
+  points forward to them.
+- **Tolerance 1e-10 in the notebook.** The stopping rule stated in the method
+  section is the one the code uses. The numbered notebooks used 1e-12 for the
+  ranking; the ranking statistics reported here (overlaps, tau) are the same to
+  the digits shown.
+- **Disagreement table shows 10 ASes in each direction.** The vote-dilution
+  figures (median 1.9e-5 rank per in-link for the ASes PageRank ranks higher,
+  8.9e-7 for the ones in-degree ranks higher) are medians over those 10 + 10
+  rows, the same rows as in the numbered notebook, so the two reports agree.
+- **Fixture cell with a guard.** `DANGLING_PAGERANK_EXACT` is still `None`, so
+  the cell that compares the solver with the hand-derived vector prints that it
+  is not filled in and skips the comparison. The two numerical checks that do
+  not need it (repaired matrix against normalised solve) run and pass.
+- **Notebook 04 removed.** The local push extension was dropped on 2026-10-20
+  and its notebook was empty. `README.md` no longer lists question 7, the push
+  algorithm or its reference.
+
+### What broke
+- **Wrong numbers in the first draft of the prose.** The summary said the power
+  method converges in 80 iterations; the run gives 69. The degree text said most
+  ASes have a handful of links; the median in-degree is 0 and the median
+  out-degree is 2. The summary described the top of the ranking as large transit
+  providers and the clique; the table shows 16 of the top 20 with more peers than
+  customers and only 4 clique members. All three were written before running the
+  cells. Fixed by reading every printed output against the text; the lesson is
+  to write prose after the cell that prints the number.
+- **First draft had no imports cell.** The source went straight to the download
+  code, which needs `urllib`, `hashlib` and `shutil`. Caught on reading the
+  draft before the first run, not by an error; added a first code cell with all
+  imports.
+- **`sed -i` on macOS.** A one-line substitution failed with `sed: 1: ...
+  unterminated substitute pattern` because BSD `sed -i` needs a backup suffix
+  argument. The edit was redone in Python.
+- **The package docstrings travel with the code.** Inlining is verbatim, so a
+  few docstrings that mention "notebook 01", "the lab notebook" and "the README"
+  appear in the submission notebook's code cells. They are not edited, to keep
+  the notebook equal to the package; see Open items.
+
+### Verified
+- `.venv/bin/python -m pytest -q`: 147 passed, 2 skipped (the two
+  dangling-ground-truth tests). Six new tests cover the committed notebook:
+  equal to a fresh build, every inlined object present verbatim, no `pagerank`
+  import, only the four libraries and the standard library, the two md5
+  constants, no em dash in the prose.
+- Two consecutive builds are byte-identical (`cmp`). The notebook has 74 cells,
+  35 of them code.
+- Executed in the project environment: no error, 15 s wall time with the
+  download.
+- Clean-environment run: a new virtual environment outside the repository with
+  numpy 2.4.6, scipy 1.17.1, pandas 2.3.3, matplotlib 3.11.2 (the lock-file
+  versions) plus nbconvert 7.17.1 and ipykernel 7.3.0, and the `.ipynb` alone in
+  an empty directory. First run, which downloads: 15 s wall time, both md5 sums
+  OK. Second run, reusing `caida_data/`: 6 s. No error in either. The run time
+  of the notebook's own cells is 14 s and 4 s.
+- Numbers reproduced from the earlier work: 80,510 nodes, 884,790 edges, 0
+  dangling, 81.1% of the edges from peering; one closed class of 20,401 ASes and
+  60,109 transient ones; peering `none` 494 dangling ASes, all 18 clique members,
+  mass 0.2252; top-k overlap with in-degree 0.90 / 0.88 / 0.86; Kendall tau-b
+  0.977 overall and 0.735 on the top-1000 union; cone tau-b 0.625 (`none`),
+  0.095 (`both`), 0.043 (in-degree); 14 of 18 clique members in the top 100.
+- New numbers in this notebook: 69 iterations to a residual of 8.3e-11 at
+  alpha 0.85 (bound 142); alpha 0.5 and 0.99 take 25 and 215 iterations (bounds
+  34 and 2292), with observed rates 0.42, 0.74 and 0.93.
+
+### Open items
+- `DANGLING_PAGERANK_EXACT` is still `None`; the two tests that use it stay
+  skipped, and section 4.2 of the notebook has the placeholder for the hand
+  derivation.
+- Four sections of the notebook are still placeholders: modelling, dangling
+  derivation, top of the ranking, conclusions. The final build refuses to run
+  until they are written.
+- The executed notebook with outputs, the README results section and the lock
+  file are still to be done.
+- Verbatim package docstrings in the notebook mention the numbered notebooks,
+  the lab notebook and the README. A reword in `src/pagerank/` followed by a
+  rebuild would remove them.
