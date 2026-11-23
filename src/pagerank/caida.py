@@ -2,7 +2,7 @@
 
 The project ranks the CAIDA AS-level topology, distributed as an ``as-rel``
 file: a header of comment lines followed by one relationship per line, in the
-format documented in ``data/raw/caida_serial-1_README.txt``::
+format CAIDA documents for ``serial-1``::
 
     <provider-as>|<customer-as>|-1      a customer-provider (c2p) link
     <peer-as>|<peer-as>|0               a peer-to-peer (p2p) link
@@ -33,7 +33,7 @@ from typing import Final, Iterable, Literal
 import numpy as np
 
 #: Relationship code for a customer-provider link: the first field is the
-#: provider, the second its customer. From the file format in the README.
+#: provider, the second its customer. From CAIDA's description of the format.
 C2P: Final = -1
 
 #: Relationship code for a peer-to-peer link: the two fields are peers.
@@ -51,7 +51,8 @@ class AsRelSnapshot:
     Attributes:
         path: The path the snapshot was read from.
         clique: ASNs on the ``# input clique:`` line, in file order. These are
-            the transit-free core the inference forces (see the README).
+            the transit-free core the inference forces (CAIDA's description of
+            the format).
         ixp_asns: ASNs on the ``# IXP ASes:`` line, in file order.
         sources: The text after ``# source:`` on each source line, verbatim and
             in file order.
@@ -196,10 +197,10 @@ class CustomerCones:
     The ``ppdc-ases`` file ships with the same snapshot as the ``as-rel`` file
     and lists, one line per AS, the AS followed by every AS in its
     provider-peer-customer cone -- the set reachable by following
-    provider-to-customer links downwards (see the ``serial-1`` README and
-    Luckie et al., IMC 2013). It is CAIDA's own "how big is this AS" ordering,
-    independent of anything this project computes, so it serves as an external
-    reference for the ranking.
+    provider-to-customer links downwards (see CAIDA's description of
+    ``serial-1`` and Luckie et al., IMC 2013). It is CAIDA's own "how big is
+    this AS" ordering, independent of anything this project computes, so it
+    serves as an external reference for the ranking.
 
     Only the cone *size* per AS is kept: the member lists run to tens of
     thousands of ASNs for the clique and are not needed downstream, so they are
@@ -421,7 +422,7 @@ class EdgeListBuild:
     """A snapshot turned into node indices and a directed edge list.
 
     The three parameters that distinguish one build from another are recorded
-    alongside the result so the notebook can report what each one did, and the
+    alongside the result so a caller can report what each one did, and the
     counts make the effect of exclusion and of dropping peering auditable.
 
     Attributes:
@@ -500,11 +501,11 @@ def build_edge_list(
     """Turn a snapshot into an index map and a directed edge list.
 
     Three modelling choices are parameters rather than defaults baked into the
-    data, so notebook 01 can build and compare every variant from one read:
+    data, so every variant can be built and compared from one read:
 
     * ``vote`` -- which endpoint of a customer-provider link the edge points
-      to. The default ``customer_to_provider`` is the reading the lab notebook
-      argued for: a customer paying for transit endorses its provider, so the
+      to. The default ``customer_to_provider`` is the reading argued for:
+      a customer paying for transit endorses its provider, so the
       edge runs customer -> provider and mass flows up towards the core.
     * ``peering`` -- whether a peer-to-peer link contributes edges at all.
       ``both`` adds an edge each way (peering is symmetric); ``none`` adds

@@ -1,8 +1,8 @@
 """Ranking helpers for score vectors.
 
-Notebook 02 compares the PageRank ordering against the in-degree ordering, so
-the tie-breaking rule has to be deterministic: an ordering that changed between
-runs would make the comparison table unreproducible. Ties are therefore broken
+Comparing the PageRank ordering against the in-degree ordering needs a
+deterministic tie-breaking rule: an ordering that changed between runs would
+make the comparison table unreproducible. Ties are therefore broken
 by ascending node index, which is stable and independent of the sort backend.
 """
 
@@ -73,9 +73,9 @@ def top_k(
 # --------------------------------------------------------------------------
 # Comparing two rankings.
 #
-# Notebook 02 sets the PageRank ordering against the in-degree ordering, which
-# needs more than a top-k list: the rank every node holds under each measure,
-# how much the two top-k sets overlap, a single rank-correlation number, and
+# Setting the PageRank ordering against the in-degree ordering needs more than
+# a top-k list: the rank every node holds under each measure, how much the two
+# top-k sets overlap, a single rank-correlation number, and
 # the nodes that move the most between the two. These four helpers provide
 # exactly that, all resting on the deterministic `ranking` above so their
 # output is reproducible.
@@ -175,8 +175,8 @@ def kendall_tau(
     reversed. The tau-b variant corrects for ties, which matter here because
     in-degree is a small integer with many ties. This is the one place the
     project leans on :mod:`scipy.stats` rather than its own code: the
-    "from scratch" claim in the README is about the PageRank solver, not about
-    a standard statistic, so using ``scipy.stats.kendalltau`` is in scope.
+    "from scratch" claim is about the PageRank solver, not about a standard
+    statistic, so using ``scipy.stats.kendalltau`` is in scope.
 
     Args:
         a: First score vector, shape ``(n,)``.
@@ -206,7 +206,7 @@ def largest_rank_shifts(a: np.ndarray, b: np.ndarray, k: int) -> np.ndarray:
     The shift of a node is ``|rank_positions(a) - rank_positions(b)|``; this
     returns the ``k`` nodes with the largest shift, most displaced first, ties
     broken by ascending index. These are the ASes the two measures disagree
-    about the most, which notebook 02 inspects for the structural reason.
+    about the most, the ones worth inspecting for a structural reason.
 
     Args:
         a: First score vector, shape ``(n,)``.
