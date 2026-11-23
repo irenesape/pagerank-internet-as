@@ -1,7 +1,7 @@
 # Who Runs the Internet? PageRank on the AS-Level Internet Topology
 
 Applying PageRank, implemented from scratch with sparse linear algebra, to the
-real graph of ~75,000 autonomous systems that make up the Internet, in order to
+real graph of about 80,000 autonomous systems that make up the Internet, in order to
 ask which networks are structurally central and how fast the underlying
 numerical methods actually converge.
 
@@ -31,16 +31,18 @@ underneath.
 The project brief suggests [SNAP](https://snap.stanford.edu/data/) as the source
 for a non-web graph. The AS topology was chosen instead, on four grounds:
 
-- **Size.** ~75,000 nodes and ~526,000 relationships: large enough that sparse
+- **Size.** About 80,000 nodes and ~526,000 relationships: large enough that sparse
   storage and iteration counts genuinely matter, small enough to solve to high
   precision on a laptop and to inspect node by node.
 - **Natural direction.** The graph is directed by its economics, not by a
   convention imposed after the fact. A customer-provider link is asymmetric
   because money and dependency flow one way, which is the property PageRank
   needs.
-- **Real dangling nodes.** ASes with no out-links occur in the data rather than
-  having to be constructed, so the dangling-node treatment is exercised by the
-  dataset itself instead of by a synthetic corner case.
+- **Real dangling nodes.** Whether ASes have no out-link depends on the edge
+  convention. With peering links left out, 494 ASes, the whole clique
+  included, have no out-link; with an edge in each direction for peering, none
+  do. The dangling-node treatment is therefore exercised by the dataset itself
+  and not only by a synthetic corner case.
 - **An independent expert ranking exists.** CAIDA publishes customer cone sizes
   for the same snapshot, which gives the interpretation of the top-ranked nodes
   something external to be checked against. Most SNAP graphs ship no reference
@@ -93,26 +95,21 @@ so these are only worth doing once the core is finished and written up.
 6. **Convergence.** How many iterations do the power method and Gauss-Seidel
    need as a function of the damping factor `alpha`, and does the observed rate
    match the theoretical bound of `alpha` per iteration?
-7. **Local computation.** How much accuracy does the local "push" algorithm for
-   personalised PageRank give up in exchange for touching only a fraction of
-   the graph?
 
-**Order of removal if the schedule tightens: 7, then 6, then 5.** Local push
-goes first — it is the largest piece of implementation and the one least
-connected to anything the brief asks for. Convergence goes second; it is
-cheaper, since the iteration counts fall out of the solver the core already
-needs, but it answers a question about the method rather than about the graph.
-The customer cone comparison is the last to go, because it is the only extension
+**Order of removal if the schedule tightens: 6, then 5.** Convergence goes
+first; it is cheaper, since the iteration counts fall out of the solver the
+core already needs, but it answers a question about the method rather than
+about the graph. The customer cone comparison is the last to go, because it is the only extension
 that feeds back into a core requirement: an independent expert ranking is
 evidence for or against the interpretation in question 3.
 
 ## Scope and constraints
 
 Everything numerical is implemented from scratch in Python on top of NumPy and
-SciPy sparse matrices: graph construction, the power method, Gauss-Seidel, and
-the local push algorithm. `networkx` appears only in the test suite, to
-cross-check results on graphs small enough to verify by hand. It never produces
-any number reported in the notebooks.
+SciPy sparse matrices: graph construction, the power method and Gauss-Seidel.
+`networkx` is used in the test suite to cross-check results on graphs small
+enough to verify by hand, and in the notebooks only to draw small graphs and to
+cross-check. It never produces any number reported in the notebooks.
 
 The emphasis is on data structures and algorithms, numerical methods, and
 complexity analysis rather than on tooling.
@@ -168,8 +165,8 @@ and the required citation.
 │   ├── 01_data_preparation.ipynb          parsing, cleaning, sparse construction
 │   ├── 02_ranking_and_indegree.ipynb      core: questions 1-4
 │   ├── 03_convergence.ipynb               extension: question 6
-│   ├── 04_local_push.ipynb                extension: question 7
 │   └── 05_customer_cone_comparison.ipynb  extension: question 5
+├── submission/         the self-contained hand-in notebook and what builds it
 ├── src/pagerank/       reusable, importable implementation
 ├── tests/              pytest suite, ground truth computed by hand
 ├── results/
@@ -208,10 +205,19 @@ Verify the environment:
 pytest
 ```
 
-Three tests report as skipped: two target the solver, which is not written yet,
-and one targets the dangling-node ground truth, which is still being derived by
-hand. The rest validate the fixtures and the exact values the solver will be
-checked against.
+Two tests report as skipped: both compare the solver with the hand-derived exact
+vector of the dangling-node fixture, which is not filled in yet. The rest
+validate the fixtures, the solver, the metrics and the submission notebook.
+
+### The submission notebook
+
+`submission/pagerank_internet_as.ipynb` is the one file that runs on its own.
+It contains the implementation it uses, downloads the CAIDA snapshot into
+`caida_data/` next to it and checks the md5 sums, and needs only numpy, scipy,
+pandas and matplotlib. It is generated from `submission/pagerank_internet_as.md`
+and the code in `src/pagerank/` by `submission/build_notebook.py`, so the two
+cannot drift apart: a test fails when the committed notebook is out of date.
+Rebuild it with `.venv/bin/python submission/build_notebook.py`.
 
 ### Which requirements file to use
 
@@ -242,8 +248,6 @@ separated from the required work._
   Bringing Order to the Web.* Stanford InfoLab, 1999.
 - A. N. Langville, C. D. Meyer. *Google's PageRank and Beyond: The Science of
   Search Engine Rankings.* Princeton University Press, 2006.
-- R. Andersen, F. Chung, K. Lang. *Local Graph Partitioning using PageRank
-  Vectors.* FOCS, 2006.
 - M. Luckie, B. Huffaker, k. claffy, A. Dhamdhere, V. Giotsas. *AS
   Relationships, Customer Cones, and Validation.* IMC, 2013.
 
