@@ -1695,3 +1695,61 @@ bound, because the first L1 difference can be as large as 2.
 - Verbatim package docstrings in the notebook mention the numbered notebooks,
   the lab notebook and the README. A reword in `src/pagerank/` followed by a
   rebuild would remove them.
+
+---
+
+## 2026-11-23 — The dangling-node ground truth, by hand
+
+The dangling fixture (edges `0->1, 0->2, 1->2, 1->3, 2->3`; node 3 dangling) has had
+an empty exact answer since the solver was written. It is now derived by hand,
+the same way the toy graph's answer was, before trusting any code with it.
+
+### How it was derived
+
+At alpha 17/20, in the repaired matrix node 3 sends a quarter of its rank to
+every node. So all four nodes get the same base share,
+`k = 3/80 + (17/80) p3`, and on top of it whatever their in-neighbours send,
+divided by the senders' out-degree. Solving for `k` first would mean carrying
+`p3` around, so I went down the chain instead and wrote each value as a
+multiple of `k`: `p0 = k`, `p1 = 57/40 k`, `p2 = 3249/1600 k`,
+`p3 = 106613/32000 k`. The four add up to 1, which gives `k = 32000/249193`
+and
+
+    p = (32000, 45600, 64980, 106613) / 249193
+      ~ (0.128, 0.183, 0.261, 0.428)
+
+The equation for `k` was not used to find it, so it is a free check, and it
+holds exactly.
+
+### What broke
+
+- **p2 was wrong on the first pass:** `2569/1600 k` instead of `3249/1600 k`.
+  Node 2 has two in-links, `0->2` and `1->2`, and I only counted the one from node 1.
+  The quick check that caught it: inside the bracket the two terms must add to
+  `40/80 + 57/80 = 97/80`. Before writing a node's equation, list its in-links.
+- **The ground-truth test checked nothing.** `test_dangling_ground_truth_is_internally_consistent`
+  had a docstring promising an exact proof and a body that was only the skip
+  for the missing constant. Once the constant was filled in, it passed without
+  testing anything. It now checks, in `Fraction` arithmetic with zero
+  tolerance, that the vector sums to 1, that every node satisfies the repaired
+  fixed point written out by hand, that node 0 holds exactly the floor and
+  ranks last, and that an exact linear solve gives the same vector. A vector
+  with two entries moved by 1/249193 (still summing to 1) makes it fail.
+- **Running the suite before rebuilding the submission notebook** fails the
+  test that compares the committed notebook with a fresh build, because the
+  notebook still held `None`. Expected; the rebuild fixed it.
+
+### Verified
+
+- `.venv/bin/python -m pytest -q`: 149 passed, 0 skipped. The two tests that
+  had been skipped since the solver was written now run: the exact one above,
+  and the solver agreeing with the vector to 1e-10 with node 0 last.
+- The derivation is written up in section 4.2 of the submission notebook, and
+  the notebook is rebuilt from the source.
+
+### Open items
+
+- Three author sections of the submission notebook remain: the modelling
+  decision (peering and alpha 0.85), the top of the ranking, the conclusions.
+- Section 4.2 still guards the comparison with `if ... is None`; the final
+  build replaces it with the plain comparison.

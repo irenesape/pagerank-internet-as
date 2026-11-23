@@ -256,7 +256,23 @@ assert np.abs(toy_result.vector - toy_exact).max() < 1e-12
 
 The second fixture has four nodes and edges $0\to1$, $0\to2$, $1\to2$, $1\to3$, $2\to3$. Node 3 has no out-link, so it is dangling. Node 0 has no in-link, so it receives only the share that every node gets: teleportation plus its part of node 3's redistributed mass. Its PageRank is derived by hand from the repaired matrix $S$ at $\alpha=17/20$ with uniform teleportation.
 
-[AUTHOR: dangling]
+**Derivation by hand.** In the repaired matrix $S$, node 3 sends a quarter of its rank to each of the four nodes. Every node therefore gets the same base share $k$: its teleportation share plus its quarter of node 3's rank.
+
+$$k = \frac{1-\alpha}{4} + \alpha\,\frac{p_3}{4} = \frac{3}{80} + \frac{17}{80}\,p_3 .$$
+
+On top of $k$, a node receives the rank of each in-neighbour divided by that neighbour's out-degree:
+
+$$p_0 = k, \qquad p_1 = k + \alpha\,\frac{p_0}{2}, \qquad p_2 = k + \alpha\left(\frac{p_0}{2} + \frac{p_1}{2}\right), \qquad p_3 = k + \alpha\left(\frac{p_1}{2} + p_2\right).$$
+
+I did not solve for $k$ first. Going down the chain, I wrote each $p_i$ as a multiple of $k$:
+
+$$p_0 = k, \qquad p_1 = \tfrac{57}{40}\,k, \qquad p_2 = \tfrac{3249}{1600}\,k, \qquad p_3 = \tfrac{106613}{32000}\,k .$$
+
+The four add up to 1, so $k = 32000/249193$ and
+
+$$p = \frac{(32000,\ 45600,\ 64980,\ 106613)}{249193} \approx (0.128,\ 0.183,\ 0.261,\ 0.428).$$
+
+The equation for $k$ played no part in finding it, which makes it a free check: putting $p_3$ back in gives exactly $32000/249193$. Node 0 has no in-link and gets only the base share, so it ranks last. Node 3 ranks first because it collects all of node 2's rank and half of node 1's.
 
 The cell below runs the solver on the fixture and compares it with the hand-derived exact vector. It also checks the claim of section 2 numerically: repairing the dangling row, and leaving the matrix substochastic and normalising the solution at the end, give the same vector.
 

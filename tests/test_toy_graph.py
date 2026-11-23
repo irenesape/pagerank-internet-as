@@ -192,28 +192,19 @@ def _dangling_nodes(edges: list[tuple[int, int]], n: int) -> list[int]:
 DANGLING_EDGES: list[tuple[int, int]] = [(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]
 DANGLING_N = 4
 
-# ==========================================================================
-# TODO(derivation): the vector below is NOT filled in yet, on purpose.
-#
-# Deriving it by hand at ALPHA = 17/20 with uniform teleportation is part of
-# the assessed work, and the entire value of TOY_PAGERANK_EXACT is that it was
-# proved before any solver existed. A constant produced by anything other than
-# that derivation would look identical and be worth nothing, so this stays
-# empty until the hand derivation is done and independently checked.
-#
-# What to derive: the fixed point of the *repaired* matrix, i.e. node 3's row
-# replaced by the uniform teleport distribution, so
-#
-#     p = (1-alpha)/n + alpha * P'^T p,   sum(p) == 1 exactly
-#
-# No convention label is needed on the result -- per the proof above, the
-# alternatives land on the same vector.
-#
-# Then delete the skips on the tests at the bottom of this module.
-# ==========================================================================
+# Derived by hand at ALPHA = 17/20 on the repaired matrix (node 3's row
+# replaced by 1/4 everywhere). Every node receives the same base share
+# k = 3/80 + (17/20) * p3 / 4. Writing each p_i as a multiple of k:
+#   p0 = k,  p1 = 57/40 k,  p2 = 3249/1600 k,  p3 = 106613/32000 k.
+# sum(p) = 1 gives k = 32000/249193; the equation for k is then a check.
 
 #: Exact PageRank of DANGLING_EDGES at ALPHA with uniform teleportation.
-DANGLING_PAGERANK_EXACT: tuple[Fraction, ...] | None = None  # TODO
+DANGLING_PAGERANK_EXACT: tuple[Fraction, ...] = (
+    Fraction(32000, 249193),   # 0.128414522...
+    Fraction(45600, 249193),   # 0.182990694...
+    Fraction(64980, 249193),   # 0.260761739...
+    Fraction(106613, 249193),  # 0.427833045...
+)
 
 
 # --------------------------------------------------------------------------
@@ -439,7 +430,7 @@ def test_unreachable_node_ranks_last_under_the_repaired_matrix() -> None:
 
 
 def test_power_iteration_matches_the_toy_graph() -> None:
-    """Contract this test will enforce once the solver is written:
+    """What the solver must satisfy on the toy graph and the 3-cycle:
 
     * accepts the graph in whatever representation you settle on
     * returns a vector summing to 1
@@ -470,8 +461,8 @@ def test_power_iteration_matches_the_toy_graph() -> None:
 def test_dangling_ground_truth_is_internally_consistent() -> None:
     """Proof obligation for the dangling fixture, mirroring the one above.
 
-    Once DANGLING_PAGERANK_EXACT is derived by hand, this is where it gets
-    proved rather than trusted, in Fraction arithmetic and with zero tolerance:
+    DANGLING_PAGERANK_EXACT was derived by hand; this is where it gets proved
+    rather than trusted, in Fraction arithmetic and with zero tolerance:
 
     * sums to exactly 1
     * satisfies the fixed point of the *repaired* matrix, where node 3's row is
@@ -481,12 +472,37 @@ def test_dangling_ground_truth_is_internally_consistent() -> None:
     One vector covers every standard convention, since they coincide -- see
     `test_dangling_conventions_agree_exactly`.
     """
-    if DANGLING_PAGERANK_EXACT is None:
-        pytest.skip("dangling ground truth not derived yet (see TODO above)")
+    n = DANGLING_N
+    p = DANGLING_PAGERANK_EXACT
+    out_deg = _out_degrees(DANGLING_EDGES, n)
+    dangling = _dangling_nodes(DANGLING_EDGES, n)
+
+    assert sum(p) == 1
+
+    # Fixed point of the repaired matrix, written out node by node: the
+    # teleport share, plus each dangling node's rank spread over all n nodes,
+    # plus each in-neighbour's rank divided by its out-degree.
+    floor = (1 - ALPHA) / n + ALPHA * sum(p[d] for d in dangling) / n
+    for node in range(n):
+        inflow = sum(
+            p[tail] / out_deg[tail] for tail, head in DANGLING_EDGES if head == node
+        )
+        assert p[node] == floor + ALPHA * inflow, f"node {node} is inconsistent"
+
+    # Node 0 has no in-link, so it holds exactly the floor and nothing less.
+    assert p[0] == floor
+    assert all(p[node] > p[0] for node in range(1, n))
+
+    # And it is the vector an exact linear solve of the repaired system gives.
+    teleport = [Fraction(1, n)] * n
+    repaired = _transition_matrix(DANGLING_EDGES, n)
+    for node in dangling:
+        repaired[node] = teleport[:]
+    assert list(p) == _damped_fixed_point(repaired, teleport, ALPHA)
 
 
 def test_power_iteration_handles_the_dangling_node() -> None:
-    """Contract this test will enforce once the solver is written:
+    """What the solver must satisfy on the dangling fixture:
 
     * agrees with DANGLING_PAGERANK_EXACT to ~1e-10 at a tight tolerance,
       whichever of the equivalent treatments it implements internally
@@ -513,11 +529,6 @@ def test_power_iteration_handles_the_dangling_node() -> None:
     # without the hand-derived constant.
     assert result.vector.sum() == pytest.approx(1.0, abs=1e-12)
     assert int(result.vector.argmin()) == 0
-
-    # The agreement-with-the-constant check stays skipped until the vector is
-    # derived by hand.
-    if DANGLING_PAGERANK_EXACT is None:
-        pytest.skip("dangling ground truth not derived yet (see TODO above)")
 
     expected = [float(p) for p in DANGLING_PAGERANK_EXACT]
     for node in range(DANGLING_N):
