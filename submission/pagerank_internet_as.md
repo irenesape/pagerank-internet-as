@@ -543,7 +543,15 @@ print(f"clique members in the top 100: {int((clique_ranks <= 100).sum())} of {le
 print(f"worst-placed clique member: rank {int(clique_ranks[-1])}")
 ```
 
-[AUTHOR: top]
+**What the top of the ranking says.** I expected the top 20 to be the clique, the 18 networks at the top of the transit hierarchy. Only 4 of them made it: Lumen (AS3356), Cogent (AS174), Arelion (AS1299) and Zayo (AS6461). These four look like large transit providers. Each has between 2,400 and 6,500 customers and few peers (under 100, except Zayo with 409), and in PeeringDB their peering policy is restrictive or "No". Their rank comes from their customers, one vote per customer.
+
+The other 16 have more peers than customers, most of them by a lot. SG.GS (AS24482, rank 2) has 59 customers and 9,779 peers. Valve (AS32590) is a game company with no customers at all, and it still ranks 11th on 5,159 peers, which surprised me more than anything else in the table. PeeringDB lists three of the 16 as content networks (Valve, F5 and Gcore) and most of the rest as network service providers. They peer widely: 9 declare an open policy and 6 a selective one. Since I model a peering session as a link in each direction, each session is a vote, and 5,000 peers mean 5,000 votes.
+
+Hurricane Electric (AS6939) is first because it has both: 2,243 customers and 7,733 peers, with an open policy.
+
+The clique is not far behind, with 14 of its 18 members in the top 100. AS2828 is the odd one, at rank 231. In this snapshot it has only 2 customers (section 8 looks at it under both conventions).
+
+What PageRank measures here is how well connected an AS is through its agreements, with each link weighted by the rank of the AS it comes from and split among that AS's out-links. Every link counts the same, whether it carries a terabit or almost nothing, so this is not a traffic measure. The customer cone counts the networks below an AS, which is a different thing, and section 9.1 shows the two barely agree once peering is in the graph (tau-b 0.095 on the top-1000 union). If I wanted to know who sells transit to the most networks, I would look at the cone and the clique. PageRank answers another question, which networks sit at the centre of the interconnection graph, and its answer is the networks that peer most widely, Hurricane Electric first.
 
 <!-- cell -->
 

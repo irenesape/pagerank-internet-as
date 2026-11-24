@@ -1,0 +1,54 @@
+asn,name,type,peering_policy,scope,source,retrieved
+174,"Cogent Communications, Inc.",NSP,No,Global,PeeringDB,2026-11-23
+209,Lumen AS209,NSP,No,North America,PeeringDB,2026-11-23
+286,GTT Communications (AS286),NSP,Restrictive,Global,PeeringDB,2026-11-23
+701,Verizon,NSP,Restrictive,Global,PeeringDB,2026-11-23
+721,US Department of Defense (DNIC),,,,ARIN RDAP,2026-11-23
+1000,LINK AMERICAN,NSP,Open,North America,PeeringDB,2026-11-23
+1239,Sprint - AS1239,NSP,Selective,Global,PeeringDB,2026-11-23
+1299,Arelion (Twelve99),NSP,Restrictive,Global,PeeringDB,2026-11-23
+2527,Sony Network Communications,NSP,Selective,Regional,PeeringDB,2026-11-23
+2828,XO Communications,NSP,Selective,North America,PeeringDB,2026-11-23
+2914,NTT Global IP Network,NSP,Restrictive,Global,PeeringDB,2026-11-23
+3257,GTT Communications (AS3257),NSP,Restrictive,Global,PeeringDB,2026-11-23
+3320,Deutsche Telekom,NSP,Restrictive,Global,PeeringDB,2026-11-23
+3356,Lumen AS3356,NSP,Restrictive,Global,PeeringDB,2026-11-23
+3491,PCCW Global,NSP,Restrictive,Global,PeeringDB,2026-11-23
+5511,Orange,NSP,Restrictive,Global,PeeringDB,2026-11-23
+6057,ANTEL,Cable/DSL/ISP,Open,Global,PeeringDB,2026-11-23
+6169,Kentik Technologies,Enterprise,Selective,North America,PeeringDB,2026-11-23
+6453,TATA Communications Ltd,NSP,Restrictive,Global,PeeringDB,2026-11-23
+6461,Zayo,NSP,Restrictive,Global,PeeringDB,2026-11-23
+6762,Telecom Italia Sparkle,NSP,Restrictive,Global,PeeringDB,2026-11-23
+6830,Liberty Global,Cable/DSL/ISP,Restrictive,Global,PeeringDB,2026-11-23
+6939,Hurricane Electric,NSP,Open,Global,PeeringDB,2026-11-23
+7018,AT&T US - 7018,NSP,Selective,North America,PeeringDB,2026-11-23
+7195,EdgeUno,NSP,Selective,Global,PeeringDB,2026-11-23
+7713,Telekomunikasi Indonesia Int (TELIN),NSP,Restrictive,Asia Pacific,PeeringDB,2026-11-23
+12880,TIC AS12880,,Selective,Not Disclosed,PeeringDB,2026-11-23
+12956,Telxius Cable,Network Services,Selective,Global,PeeringDB,2026-11-23
+14103,ACD.net,Cable/DSL/ISP,Open,Regional,PeeringDB,2026-11-23
+14537,Continent 8 Technologies,NSP,Open,Global,PeeringDB,2026-11-23
+16344,Information Services,,Open,Europe,PeeringDB,2026-11-23
+23487,CONECEL,Cable/DSL/ISP,Selective,South America,PeeringDB,2026-11-23
+24482,SG.GS,NSP,Open,Asia Pacific,PeeringDB,2026-11-23
+25374,ESCOM,Cable/DSL/ISP,Open,Europe,PeeringDB,2026-11-23
+32437,Edge Connect,Cable/DSL/ISP,Open,Africa,PeeringDB,2026-11-23
+32590,Valve Corporation,Content,Selective,Global,PeeringDB,2026-11-23
+33651,Comcast - SFBA,Cable/DSL/ISP,Restrictive,Regional,PeeringDB,2026-11-23
+33667,Comcast - Central California,Cable/DSL/ISP,Restrictive,Regional,PeeringDB,2026-11-23
+35280,F5 Inc.,Content,Selective,Global,PeeringDB,2026-11-23
+36874,Cybersmart Ltd,Cable/DSL/ISP,Open,Regional,PeeringDB,2026-11-23
+37721,Virtual Technologies and Solutions,Cable/DSL/ISP,Open,Global,PeeringDB,2026-11-23
+39120,Convergenze S.p.A.SB,Cable/DSL/ISP,Open,Global,PeeringDB,2026-11-23
+49544,i3D.net,NSP,Selective,Global,PeeringDB,2026-11-23
+64123,Dodolink Internacional SRL,Cable/DSL/ISP,Selective,Global,PeeringDB,2026-11-23
+132337,Axclusive,,Open,Not Disclosed,PeeringDB,2026-11-23
+133095,PUSAT FIBER INDONESIA - NAP,NSP,Open,Asia Pacific,PeeringDB,2026-11-23
+137409,Global Secure Layer,NSP,Open,Global,PeeringDB,2026-11-23
+197000,RIPE NCC Authoritative DNS,Non-Profit,Open,Global,PeeringDB,2026-11-23
+199524,Gcore,Content,Selective,Global,PeeringDB,2026-11-23
+206014,RdemSystems,Enterprise,Open,Not Disclosed,PeeringDB,2026-11-23
+262259,Starnetworks,Cable/DSL/ISP,Open,Regional,PeeringDB,2026-11-23
+264409,Huge Networks / Grupo YAX,NSP,Selective,Global,PeeringDB,2026-11-23
+269194,ST1 INTERNET,NSP,Open,Regional,PeeringDB,2026-11-23

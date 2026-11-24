@@ -1796,3 +1796,39 @@ submission notebook.
   notebook; the alpha table of the submission notebook gains that column in the
   final build so the claim is backed where it is made.
 - Two author sections remain: the top of the ranking and the conclusions.
+
+## 2026-11-24 — The top of the ranking, interpreted
+
+The interpretation of the top 20 is written, at the end of section 6 of the
+submission notebook. To read the table I needed to know who the ASes are, so
+the names and peering policies of the 53 ASes the notebook discusses (top 20,
+the clique, the 20 disagreement ASNs) are now in `data/as_names.csv`.
+
+### Decisions
+
+- **Names from PeeringDB.** 52 of the 53 ASNs come from the PeeringDB API,
+  retrieved 2026-11-23, with the network type, the declared peering policy and
+  the scope. AS721 has no PeeringDB record; its name comes from ARIN RDAP. The
+  data is self-reported and current, not dated to the 2026-09-01 snapshot, and
+  the notebook says so next to the table.
+- **The reading of the top 20.** Two kinds of AS reach the top. 4 clique
+  members (Lumen, Cogent, Arelion, Zayo) rank on thousands of customers with
+  restrictive peering. The other 16 have more peers than customers, and 15 of
+  them declare an open or selective policy; Valve, with 0 customers, ranks 11th.
+  Hurricane Electric is first with both. PageRank on this graph measures
+  position in the interconnection graph, not transit size (that is the cone)
+  and not traffic.
+
+### What broke
+
+- **Claims the data did not support.** The first draft called the four clique
+  members' peer counts "a few dozen" (they are 65 to 85, and 409 for Zayo), sorted
+  the peering-heavy networks into hosting providers and access ISPs without a
+  source, and called all 16 "open-peering hubs" although 6 are selective and 1
+  restrictive. Each was checked against `as_names.csv` and the top-20 table and
+  rewritten before it went into the notebook.
+
+### Open items
+
+- The conclusions (section 10) and the revision of the summary.
+- The final build adds `AS_NAMES` and the name and policy columns to the tables.
