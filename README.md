@@ -205,9 +205,9 @@ Verify the environment:
 pytest
 ```
 
-Two tests report as skipped: both compare the solver with the hand-derived exact
-vector of the dangling-node fixture, which is not filled in yet. The rest
-validate the fixtures, the solver, the metrics and the submission notebook.
+All tests pass. Two of them compare the solver with the hand-derived exact
+vector of the dangling-node fixture; the rest validate the fixtures, the
+solver, the metrics and the submission notebook.
 
 ### The submission notebook
 

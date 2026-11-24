@@ -1941,11 +1941,6 @@ run.
   `results/tables/03_timings.csv`, which holds wall times. It was restored with
   `git checkout` for that file, so no timing from this machine enters the
   history.
-- **The lab notebook edit that did not apply.** The first attempt to add the
-  senders paragraph to the entry on the conclusions asserted on a text that
-  lacked the blank lines between sections, failed before writing anything, and
-  was redone against the real text. The paragraph itself is in the entry on the
-  conclusions.
 
 ### Verified
 - `.venv/bin/python -m pytest -q`: 150 passed, 0 skipped.
@@ -1968,6 +1963,4 @@ run.
   no test is skipped, the four author sections and the summary are written, the
   executed notebook, the README results and the lock file are done, and the
   docstrings no longer refer to files outside the package.
-- The README still says in its *Reproducing* section that two tests are
-  skipped. None is skipped now.
 - The tag `v1.0` is local; it is pushed with the branch.
