@@ -60,21 +60,21 @@ is extra work built on top of them.
 
 ### Core
 
-1. **Modelling.** How is a dataset of a non-web network — the commercial
-   relationships between autonomous systems — turned into a directed graph
+1. **Modelling.** How is a dataset of a non-web network (the commercial
+   relationships between autonomous systems) turned into a directed graph
    suitable for PageRank? Which direction does a link's vote run in, and which
    of those choices are facts from the data rather than modelling decisions?
 2. **Dangling nodes.** Which ASes end up with no out-links under the chosen
    edge direction, how much probability mass do they hold, and what has to be
    done about the fact that the transition matrix is substochastic without
-   them? Several treatments are in circulation — replace each dangling row
+   them? Several treatments are in circulation: replace each dangling row
    with the teleport distribution, replace it with the uniform distribution,
    or leave the matrix as it is and renormalise the solution. Do they actually
    disagree? Showing *whether* the choice matters, and why, is part of the
    answer rather than a preliminary to it.
 3. **Interpretation.** What does a high PageRank *mean* for an AS? Which
    networks does it put on top, and is that consistent with what the topology
-   is known to look like — in particular with the 18-ASN transit-free clique
+   is known to look like, in particular with the 18-ASN transit-free clique
    that CAIDA's own inference forces?
 4. **PageRank versus in-degree.** How does the PageRank ordering differ from
    simply ranking ASes by in-degree, and what explains the disagreements? This
@@ -85,8 +85,8 @@ is extra work built on top of them.
 ### Extensions
 
 Above the brief, and explicitly cuttable. The rubric notes that complexity is
-not rewarded for its own sake — a simple, correct, well-evaluated
-implementation scores better than an elaborate one that is poorly explained —
+not rewarded for its own sake: a simple, correct, well-evaluated
+implementation scores better than an elaborate one that is poorly explained,
 so these are only worth doing once the core is finished and written up.
 
 5. **Customer cone comparison.** How does the PageRank ordering compare with
@@ -128,7 +128,7 @@ mandatory requirements:
 1. Obtain a dataset of a network that is **not** the web and model it as a
    directed graph.
 2. Apply an **own implementation** of PageRank, **including the treatment of
-   dangling nodes** — Project 3.2 (*Handling Dangling Nodes*) is folded into
+   dangling nodes**. Project 3.2 (*Handling Dangling Nodes*) is folded into
    3.4 as standard, so this is a requirement and not an optional refinement.
 3. Interpret the top-ranked nodes: explain what a high PageRank means in this
    particular context.
@@ -137,7 +137,7 @@ mandatory requirements:
 
 The rubric states that complexity is not rewarded in itself: a simple, correct
 and well-evaluated implementation scores higher than a complex one that is
-badly explained. The research questions above are organised accordingly — the
+badly explained. The research questions above are organised accordingly: the
 four requirements as Core, everything else marked as an Extension.
 
 Author: Irene Sarrias Perez.
@@ -235,12 +235,59 @@ place it under `data/raw/`, and run the notebooks in numerical order.
 
 ## Results
 
-_To be completed. This section will summarise the answers to the four core
-research questions first — the top-ranked ASes and their interpretation, the
-dangling-node treatment, and the PageRank-versus-in-degree comparison — with
-figures from `results/figures/` and the ranking tables from `results/tables/`.
-Any extension that survives the schedule is reported after them, clearly
-separated from the required work._
+All numbers come from the executed submission notebook
+`submission/pagerank_internet_as.ipynb`, run on the CAIDA snapshot of
+2026-09-01 with damping factor 0.85 and a residual below 1e-10. The core
+answers come first, the two extensions after them.
+
+### Core
+
+1. **Modelling.** The graph has 80,510 ASes and 884,790 directed edges. A
+   customer-provider link is an edge from the customer to its provider, which
+   the data fixes. Peering is the real decision: each peering link becomes one
+   edge in each direction (`both`), and peering links are 81.1% of all edges.
+   Leaving them out (`none`) is kept as a sensitivity check.
+2. **Dangling nodes.** With peering in both directions no AS is dangling. With
+   peering left out, 494 ASes have no out-link, all 18 clique members among
+   them, and they hold 22.5% of the PageRank mass. The solver spreads that mass
+   uniformly at every step and the vector still sums to 1. Repairing the
+   matrix and normalising the solution at the end give the same vector; this
+   is checked against a fixture whose exact answer was derived by hand, and
+   against the lecture's examples. What changes the ranking is the modelling
+   decision, not the dangling treatment: the top-20 overlap between `both` and
+   `none` is 5 of 20 (Kendall tau-b 0.638).
+3. **Interpretation.** Only 4 of the 18 clique members are in the top 20
+   (Lumen AS3356, Cogent AS174, Arelion AS1299 and Zayo AS6461), though 14 are
+   in the top 100. The other 16 ASes in the top 20 have more peers than
+   customers. Hurricane Electric (AS6939) is first, with 2,243 customers and
+   7,733 peers, and Valve (AS32590) is 11th with no customer. With peering in
+   the graph, a high PageRank means an AS is central in the graph of commercial
+   agreements. It does not measure traffic.
+4. **PageRank versus in-degree.** The rankings agree on 9 of the top 10, 44 of
+   the top 50 and 86 of the top 100 ASes, with a Kendall tau-b of 0.977 over all
+   ASes and 0.735 on the union of the two top 1000s. They separate further down,
+   for two reasons seen among the ten ASes that in-degree ranks most above
+   PageRank. Six get their in-links mostly from peers that link to more than a
+   thousand ASes, so each link carries little rank (vote dilution). The other
+   four get theirs from small customers that have little rank of their own.
+   The median rank delivered per in-link is 8.9e-7 for these ten, against 1.9e-5
+   for the ten ASes that PageRank ranks most above in-degree. The clearest case
+   is AS721, which PageRank puts 582nd on 3 in-links and in-degree puts
+   12,867th.
+
+### Extensions
+
+5. **Customer cone.** CAIDA's customer cone sizes agree with the ranking
+   without peering (Kendall tau-b 0.625 on the top-1000 union) and hardly with
+   the main ranking (0.095). In-degree agrees least (0.043).
+6. **Damping factor.** The power method needs 25, 69 and 215 iterations at
+   alpha 0.5, 0.85 and 0.99, fewer than the `alpha^k` estimate each time (34,
+   142 and 2,292). The share of the mass held by the single closed class of
+   20,401 ASes is 0.61, 0.879 and 0.992. The ranking moves with alpha (tau-b
+   against 0.85: 0.549 and 0.644 on the top-1000 union).
+
+The figures are drawn in the notebook. Those produced by the numbered
+notebooks are in `results/figures/` and their tables in `results/tables/`.
 
 ## References
 
