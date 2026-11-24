@@ -1859,3 +1859,31 @@ notebook prints or that can be read from its tables.
 ### Open items
 
 - The revision of the summary (section 0). Then the final build.
+
+## 2026-11-24 — The summary, revised
+
+The summary at the top of the submission notebook was written before the
+author sections existed, so it gave the numbers without saying what they mean.
+It is now in line with the top-of-ranking section and the conclusions.
+
+### Decisions
+
+- **What the top means.** The top-20 bullet now says that only 4 clique members
+  reach the top 20, names Hurricane Electric (first) and Valve (11th, no
+  customers), and states that a high PageRank means centrality in the graph of
+  commercial agreements.
+- **The verdict on in-degree.** The in-degree bullet adds the overall tau-b
+  (0.977) and the top-1000 value (0.735), and says plainly that at the top
+  counting in-links gives almost the same answer.
+- **Peering against the dangling treatment.** The no-peering bullet adds that
+  only 5 of the top 20 stay, and that peering moves the ranking far more than
+  the dangling treatment, which makes no difference with uniform teleportation.
+- **A bullet for the extensions.** Customer cone (tau-b 0.625 without peering,
+  0.095 with it) and the iteration counts at three values of alpha.
+- The summary stays impersonal; the first-person voice is in the author
+  sections. Every number in it is printed by the notebook or appears in those
+  sections.
+
+### Open items
+
+- The final build (spec 07, round 2).
