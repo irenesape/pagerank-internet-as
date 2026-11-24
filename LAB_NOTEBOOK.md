@@ -1832,3 +1832,30 @@ the clique, the 20 disagreement ASNs) are now in `data/as_names.csv`.
 
 - The conclusions (section 10) and the revision of the summary.
 - The final build adds `AS_NAMES` and the name and policy columns to the tables.
+
+## 2026-11-24 — The conclusions
+
+The conclusions close section 10 of the submission notebook. They answer the
+four core questions in order and then the two extensions, with numbers that the
+notebook prints or that can be read from its tables.
+
+### Decisions
+
+- **The verdict on in-degree.** At the top PageRank and in-degree nearly
+  coincide (9 of 10, 44 of 50, tau-b 0.977 overall), and I say so. They come
+  apart further down (tau-b 0.735 on the top-1000 union) in the way vote
+  dilution predicts: AS721 is 582nd by PageRank on 3 in-links and 12,867th by
+  in-degree, and the ASes in-degree prefers get over ten times less rank per
+  in-link (medians 1.9e-5 against 8.9e-7).
+- **The short version.** On the AS graph PageRank is in-degree with better
+  weights, and the peering decision matters more than the algorithm.
+
+### What broke
+
+- **The lecture example.** The draft said vote dilution was shown in the
+  lecture on a five-node example. The lecture's example is the four-page one
+  (W, X, Y, Z); corrected before the commit.
+
+### Open items
+
+- The revision of the summary (section 0). Then the final build.
