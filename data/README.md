@@ -146,6 +146,8 @@ data/
 └── README.md    this file
 ```
 
+`as_names.csv` (tracked) lists the name, type and peering policy of the 53 ASes the analysis tables show. The names come from PeeringDB (AS 721 from ARIN RDAP), retrieved on 2026-11-23. They are self-reported and current as of that date, not as of the snapshot.
+
 Keep `raw/` immutable and write every derived artefact to `processed/`. If a
 processing bug appears you re-derive `processed/` and never have to re-download,
 and you can always tell which files came from CAIDA and which came from your

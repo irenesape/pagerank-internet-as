@@ -345,3 +345,23 @@ def test_notebook_prose_has_no_em_dash() -> None:
     for cell in _committed().cells:
         if cell.cell_type == "markdown":
             assert "\u2014" not in cell.source, cell.source[:60]
+
+
+def test_notebook_as_names_equal_the_csv() -> None:
+    """The notebook cannot read repository files, so it carries a copy."""
+    import csv
+
+    cell = next(
+        c.source
+        for c in _committed().cells
+        if c.cell_type == "code" and c.source.startswith("AS_NAMES = {")
+    )
+    namespace: dict = {}
+    exec(cell, namespace)
+    with open(REPO / "data" / "as_names.csv", newline="", encoding="utf-8") as handle:
+        expected = {
+            int(row["asn"]): (row["name"], row["peering_policy"])
+            for row in csv.DictReader(handle)
+        }
+    assert len(expected) == 53
+    assert namespace["AS_NAMES"] == expected

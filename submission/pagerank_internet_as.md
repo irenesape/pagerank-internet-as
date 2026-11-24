@@ -11,7 +11,7 @@ Internet and Networked Economy, MATT, ETSETB, UPC. Programming assignment, Proje
 - The CAIDA AS Relationships snapshot of 1 September 2026 gives 80,510 autonomous systems (ASes) and 884,790 directed edges. An edge points from a customer to its provider, and each peering link becomes one edge in each direction.
 - PageRank is implemented from scratch with the power method on a sparse matrix. Dangling nodes (ASes with no out-link) redistribute their mass uniformly. The code is checked against exact fractions, a hand-derived fixture, and the lecture examples.
 - At damping 0.85 the power method converges in 69 iterations to a residual below 1e-10. Only 4 of the 18 clique members are in the top 20, though 14 are in the top 100. The other 16 ASes in the top 20 have more peers than customers. Hurricane Electric is first, with 2,243 customers and 7,733 peers, and Valve is 11th without a single customer. With peering in the graph, a high PageRank means an AS is central in the graph of commercial agreements.
-- PageRank and in-degree agree on 9 of the top 10, 44 of the top 50 and 86 of the top 100 ASes, with a Kendall tau-b of 0.977 over all ASes. At the top, counting in-links gives almost the same answer. Further down the two separate (tau-b 0.735 on the top-1000 union): in-degree overrates ASes whose in-links come from networks with thousands of out-links, because each of those links passes on little rank.
+- PageRank and in-degree agree on 9 of the top 10, 44 of the top 50 and 86 of the top 100 ASes, with a Kendall tau-b of 0.977 over all ASes. At the top, counting in-links gives almost the same answer. Further down the two separate (tau-b 0.735 on the top-1000 union): in-degree overrates ASes whose in-links each pass on little rank, either because the sender links to more than a thousand others or because it is a small network with little rank of its own.
 - Without peering links, 494 ASes have no out-link, all 18 clique members among them, and they hold 22.5% of the PageRank mass. The same solver handles it, but only 5 of the top 20 stay. Peering moves the ranking much more than the dangling treatment does; with uniform teleportation the treatments give the same vector.
 - In the two extensions, CAIDA's customer cone agrees with the ranking without peering (tau-b 0.625) and hardly at all with the main one (0.095). The power method needs 25, 69 and 215 iterations at alpha 0.5, 0.85 and 0.99, and the top of the ranking moves with alpha.
 
@@ -308,12 +308,9 @@ print(f"max |solver - normalised solve|  {np.abs(v_sparse - v_normalised).max():
 assert np.abs(v_sparse - v_repaired).max() < 1e-12
 assert np.abs(v_sparse - v_normalised).max() < 1e-12
 
-if DANGLING_PAGERANK_EXACT is None:
-    print("hand-derived exact vector: not filled in yet")
-else:
-    exact = np.array([float(p) for p in DANGLING_PAGERANK_EXACT])
-    print(f"max |solver - hand-derived|      {np.abs(v_sparse - exact).max():.2e}")
-    assert np.abs(v_sparse - exact).max() < 1e-12
+exact = np.array([float(p) for p in DANGLING_PAGERANK_EXACT])
+print(f"max |solver - hand-derived|      {np.abs(v_sparse - exact).max():.2e}")
+assert np.abs(v_sparse - exact).max() < 1e-12
 ```
 
 ### 4.3 Examples from the lecture
@@ -469,7 +466,67 @@ print(f"min / max       {pr.min():.2e} / {pr.max():.2e}  (uniform would be {1 / 
 assert result.converged and abs(pr.sum() - 1) < 1e-12
 ```
 
-The top 20, with the facts about each AS taken from the snapshot: how many customers, providers and peers it has, and whether it is in the clique.
+Names and peering policies come from PeeringDB (AS 721 from ARIN RDAP), retrieved on 2026-11-23. This data is self-reported by the networks and current as of that date, not as of the snapshot date. An AS without an entry gets an empty name and policy.
+
+```python
+AS_NAMES = {
+    174: ("Cogent Communications, Inc.", "No"),
+    209: ("Lumen AS209", "No"),
+    286: ("GTT Communications (AS286)", "Restrictive"),
+    701: ("Verizon", "Restrictive"),
+    721: ("US Department of Defense (DNIC)", ""),
+    1000: ("LINK AMERICAN", "Open"),
+    1239: ("Sprint - AS1239", "Selective"),
+    1299: ("Arelion (Twelve99)", "Restrictive"),
+    2527: ("Sony Network Communications", "Selective"),
+    2828: ("XO Communications", "Selective"),
+    2914: ("NTT Global IP Network", "Restrictive"),
+    3257: ("GTT Communications (AS3257)", "Restrictive"),
+    3320: ("Deutsche Telekom", "Restrictive"),
+    3356: ("Lumen AS3356", "Restrictive"),
+    3491: ("PCCW Global", "Restrictive"),
+    5511: ("Orange", "Restrictive"),
+    6057: ("ANTEL", "Open"),
+    6169: ("Kentik Technologies", "Selective"),
+    6453: ("TATA Communications Ltd", "Restrictive"),
+    6461: ("Zayo", "Restrictive"),
+    6762: ("Telecom Italia Sparkle", "Restrictive"),
+    6830: ("Liberty Global", "Restrictive"),
+    6939: ("Hurricane Electric", "Open"),
+    7018: ("AT&T US - 7018", "Selective"),
+    7195: ("EdgeUno", "Selective"),
+    7713: ("Telekomunikasi Indonesia Int (TELIN)", "Restrictive"),
+    12880: ("TIC AS12880", "Selective"),
+    12956: ("Telxius Cable", "Selective"),
+    14103: ("ACD.net", "Open"),
+    14537: ("Continent 8 Technologies", "Open"),
+    16344: ("Information Services", "Open"),
+    23487: ("CONECEL", "Selective"),
+    24482: ("SG.GS", "Open"),
+    25374: ("ESCOM", "Open"),
+    32437: ("Edge Connect", "Open"),
+    32590: ("Valve Corporation", "Selective"),
+    33651: ("Comcast - SFBA", "Restrictive"),
+    33667: ("Comcast - Central California", "Restrictive"),
+    35280: ("F5 Inc.", "Selective"),
+    36874: ("Cybersmart Ltd", "Open"),
+    37721: ("Virtual Technologies and Solutions", "Open"),
+    39120: ("Convergenze S.p.A.SB", "Open"),
+    49544: ("i3D.net", "Selective"),
+    64123: ("Dodolink Internacional SRL", "Selective"),
+    132337: ("Axclusive", "Open"),
+    133095: ("PUSAT FIBER INDONESIA - NAP", "Open"),
+    137409: ("Global Secure Layer", "Open"),
+    197000: ("RIPE NCC Authoritative DNS", "Open"),
+    199524: ("Gcore", "Selective"),
+    206014: ("RdemSystems", "Open"),
+    262259: ("Starnetworks", "Open"),
+    264409: ("Huge Networks / Grupo YAX", "Selective"),
+    269194: ("ST1 INTERNET", "Open"),
+}
+```
+
+The top 20, with the name and peering policy of each AS and the facts about it taken from the snapshot: how many customers, providers and peers it has, and whether it is in the clique.
 
 ```python
 rel = snapshot.relationships
@@ -499,6 +556,8 @@ def as_row(node: int) -> dict:
     return {
         "rank": int(pr_rank[node]),
         "ASN": int(build.asns[node]),
+        "name": AS_NAMES.get(int(build.asns[node]), ("", ""))[0],
+        "peering policy": AS_NAMES.get(int(build.asns[node]), ("", ""))[1],
         "PageRank": float(pr[node]),
         "in-degree": int(graph.in_degree[node]),
         "in-degree rank": int(in_rank[node]),
@@ -622,7 +681,7 @@ def disagreements(candidates: np.ndarray, direction: str, k: int = 10) -> pd.Dat
 higher_pr = disagreements(union_top[shift[union_top] < 0], "PageRank")
 higher_in = disagreements(union_top[shift[union_top] > 0], "in-degree")
 pd.concat([higher_pr, higher_in], ignore_index=True)[
-    ["better by", "ASN", "rank", "in-degree rank", "rank shift", "in-degree", "peers", "customers", "per in-link"]
+    ["better by", "ASN", "name", "peering policy", "rank", "in-degree rank", "rank shift", "in-degree", "peers", "customers", "per in-link"]
 ]
 ```
 
@@ -669,6 +728,8 @@ rank_none = rank_positions(pr_none)
 pd.DataFrame(
     {
         "ASN": build.asns[clique_nodes],
+        "name": [AS_NAMES.get(int(a), ("", ""))[0] for a in build.asns[clique_nodes]],
+        "peering policy": [AS_NAMES.get(int(a), ("", ""))[1] for a in build.asns[clique_nodes]],
         "rank, peering both": pr_rank[clique_nodes],
         "rank, peering none": rank_none[clique_nodes],
     }
@@ -761,7 +822,7 @@ The two cone definitions are not the same object. CAIDA's cone is the set seen t
 
 ### 9.2 The damping factor
 
-The damping factor $\alpha$ sets how far a surfer follows links before teleporting. For $\alpha = 0.5,\ 0.85,\ 0.99$ the table gives the iterations needed, the estimate $\lceil\ln(10^{-10})/\ln\alpha\rceil$, the observed rate (median ratio of successive residuals over the second half of the run) and how much the ranking moves relative to $\alpha=0.85$.
+The damping factor $\alpha$ sets how far a surfer follows links before teleporting. For $\alpha = 0.5,\ 0.85,\ 0.99$ the table gives the iterations needed, the estimate $\lceil\ln(10^{-10})/\ln\alpha\rceil$, the observed rate (median ratio of successive residuals over the second half of the run), the share of the PageRank mass held by the closed class of section 5, and how much the ranking moves relative to $\alpha=0.85$.
 
 ```python
 rows = []
@@ -776,6 +837,7 @@ for alpha in (0.50, 0.85, 0.99):
             "iterations": run.iterations,
             "alpha^k estimate": int(np.ceil(np.log(TOL) / np.log(alpha))),
             "observed rate": float(np.median(tail[1:] / tail[:-1])),
+            "mass in the closed class": float(run.vector[~structure.transient_mask].sum()),
             "top-10 overlap with 0.85": top_k_overlap(run.vector, pr, 10),
             "tau-b with 0.85 (top-1000 union)": kendall_tau(run.vector, pr, subset=union_alpha),
         }
@@ -806,7 +868,7 @@ The dangling treatments agree on this graph. With uniform teleportation, replaci
 
 A high PageRank means an AS is central in the graph of commercial agreements. The clique is near the top, with 14 of its 18 members in the top 100, but only 4 of them make the top 20. The rest of the top 20 are networks with thousands of peers and few customers. Hurricane Electric is first because it has both.
 
-In-degree is where PageRank has to justify itself, and at the top it barely does. The two rankings share 9 of the top 10 and 44 of the top 50, with a Kendall tau-b of 0.977 over all ASes, so counting in-links already tells you who is on top. Further down they separate (tau-b 0.735 on the top-1000 union), and the differences are the ones the method predicts. PageRank puts AS721 (US Department of Defense) 582nd on 3 in-links; in-degree puts it 12,867th. The ASes that in-degree prefers have around 140 in-links, mostly from networks with more than a thousand out-links, and each of those links delivers over ten times less rank. I had seen vote dilution in the lecture on the four-page example, and here it is on 80,000 ASes.
+In-degree is where PageRank has to justify itself, and at the top it barely does. The two rankings share 9 of the top 10 and 44 of the top 50, with a Kendall tau-b of 0.977 over all ASes, so counting in-links already tells you who is on top. Further down they separate (tau-b 0.735 on the top-1000 union), and the differences are the ones the method predicts. PageRank puts AS721 (US Department of Defense) 582nd on 3 in-links; in-degree puts it 12,867th. The ASes that in-degree prefers have around 140 in-links each, and each of those links delivers over ten times less rank. Six of the ten get their in-links mostly from peers with more than a thousand out-links, which split their rank very thin. That is the vote dilution I had seen in the lecture on the four-page example, here on 80,000 ASes. The other four collect theirs from small customers that have little rank to pass on.
 
 The extensions agree with this reading. CAIDA's customer cone matches the ranking without peering (tau-b 0.625) and hardly matches the main one (0.095), so with peering PageRank measures something the cone does not. The power method needs 25, 69 and 215 iterations at alpha 0.5, 0.85 and 0.99, fewer than the alpha^k estimate each time. The top of the ranking does move with alpha, though, and 0.85 is a convention I borrowed from the web.
 

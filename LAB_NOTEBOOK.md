@@ -1855,6 +1855,16 @@ notebook prints or that can be read from its tables.
 - **The lecture example.** The draft said vote dilution was shown in the
   lecture on a five-node example. The lecture's example is the four-page one
   (W, X, Y, Z); corrected before the commit.
+- **The senders claim held for 6 of 10 ASes.** The draft, and the summary,
+  said the ASes that in-degree prefers get their in-links mostly from networks
+  with more than a thousand out-links. The number check of the final build
+  looked at the senders of the ten ASes in the section 7 table: for six (fed
+  by peers) the median sender out-degree is 1,012 to 1,438, for the other four
+  (fed by customers) it is 3 to 15, and 38% of all their in-links come from a
+  sender with more than a thousand out-links. The low rank per in-link of the
+  four comes from senders that are small and hold little rank, not from hubs
+  splitting theirs. Both sentences were reworded to give the two causes before
+  the executed notebook was committed.
 
 ### Open items
 
