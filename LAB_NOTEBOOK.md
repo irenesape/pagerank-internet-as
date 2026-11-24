@@ -1897,3 +1897,77 @@ It is now in line with the top-of-ranking section and the conclusions.
 ### Open items
 
 - The final build (spec 07, round 2).
+
+---
+
+## 2026-11-24 — The final assembly
+
+The submission notebook is built from its source with the final flag, executed
+once, and committed with its outputs. This entry closes the work on it: the
+executed notebook, the README results, the lock file and the clean-environment
+run.
+
+### Decisions
+- **The notebook is executed in an empty directory.** The stored outputs then
+  show a first run, including the download and the md5 check, and contain no
+  path of the machine it was run on. It is the one notebook committed with
+  outputs; the numbered notebooks stay cleared.
+- **Names and peering policies are embedded in the notebook.** The notebook
+  cannot read files of the repository, so the 53 entries of `data/as_names.csv`
+  are a dictionary in a cell, written from the CSV, and a test compares the two.
+  The cell says the data comes from PeeringDB (AS721 from ARIN RDAP), retrieved
+  on 2026-11-23, is self-reported and is current as of that date, not as of the
+  snapshot.
+- **The alpha table gains the mass held by the closed class.** At alpha 0.5,
+  0.85 and 0.99 it is 0.61, 0.879 and 0.992 (0.6097, 0.8786 and 0.9917 before
+  rounding). It supports the statement in section 1 that at 0.99 the closed
+  class holds almost all the mass and the other 60,109 ASes end up close to
+  zero.
+- **The guard on the hand-derived vector is gone.** Section 4.2 compares the
+  solver with the exact vector unconditionally: maximum difference 1.7e-15.
+- **README results from the executed notebook.** Core answers first, extensions
+  after, both causes of the disagreement with in-degree as the notebook now
+  states them. The em dashes left in the README were replaced with plain
+  punctuation.
+- **Lock file.** `pip freeze --exclude-editable` of the project environment
+  gives the same 113 pins as before, so only the generation date changed.
+
+### What broke
+- **Lock-file header.** The regenerated file carried the date 2026-11-23, and
+  the blank lines around the `-e .` line were dropped by my rewrite. The date
+  is corrected in this commit; the blank lines have no effect on pip and are
+  left as they are.
+- **A tracked table rewritten by a run.** Executing notebook 03 rewrote
+  `results/tables/03_timings.csv`, which holds wall times. It was restored with
+  `git checkout` for that file, so no timing from this machine enters the
+  history.
+- **The lab notebook edit that did not apply.** The first attempt to add the
+  senders paragraph to the entry on the conclusions asserted on a text that
+  lacked the blank lines between sections, failed before writing anything, and
+  was redone against the real text. The paragraph itself is in the entry on the
+  conclusions.
+
+### Verified
+- `.venv/bin/python -m pytest -q`: 150 passed, 0 skipped.
+- The notebook has 78 cells, 37 of them code. Executed in the project
+  environment: no error, 13 s wall time with the download, 10 s by its own timer.
+- Clean-environment run on the committed executed notebook, alone in an empty
+  directory, in a new virtual environment with numpy 2.4.6, scipy 1.17.1,
+  pandas 2.3.3, matplotlib 3.11.2, nbconvert 7.17.1 and ipykernel 7.3.0: 13 s
+  with the download (both md5 sums OK), 6 s reusing the files. No error in
+  either run. The notebook's own timer: 10 s and 4 s.
+- Numbered notebooks 00, 01, 02, 03 and 05 all execute without error (3, 5, 6,
+  15 and 6 s).
+- Every number in the summary, the sections written by the author and the
+  README results was read against the printed outputs of the final build. One
+  statement did not hold and was reworded before the commit (see the entry on
+  the conclusions).
+
+### Open items
+- The earlier open items are resolved: the hand-derived vector is in place and
+  no test is skipped, the four author sections and the summary are written, the
+  executed notebook, the README results and the lock file are done, and the
+  docstrings no longer refer to files outside the package.
+- The README still says in its *Reproducing* section that two tests are
+  skipped. None is skipped now.
+- The tag `v1.0` is local; it is pushed with the branch.

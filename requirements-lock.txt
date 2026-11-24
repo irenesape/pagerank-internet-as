@@ -4,7 +4,7 @@
 #   pip freeze --exclude-editable > requirements-lock.txt
 #
 # Interpreter: CPython 3.11.2 on Darwin-arm64
-# Generated on: 2026-11-23
+# Generated on: 2026-11-24
 #
 # Editable installs are excluded from pip freeze on purpose: it emits an
 # absolute path to the machine it ran on. The relative '-e .' below does
